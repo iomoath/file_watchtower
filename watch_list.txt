@@ -1,0 +1,6 @@
+# Directory Format: directory path, scan_sub folders, excluded extensions, max file size in byte unit
+# Example: /var/www/html/wordpress/wp-content/themes, yes, .css|.woff|.ttf, 1048576
+
+# Single File Format: full file path
+# /var/www/html/config.php
+

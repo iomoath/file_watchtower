@@ -1,0 +1,2 @@
+File WatchTower has a detected a file rename. The attached document contains more details about this incident.
+Number of Renamed Files %RENAME_COUNT%

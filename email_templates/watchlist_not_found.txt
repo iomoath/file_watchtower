@@ -1,0 +1,2 @@
+File WatchTower unable to start because the file watch list file '%WATCH_LIST_FILE_PATH%' is not found.
+Detected: %DETECTION_TIME%

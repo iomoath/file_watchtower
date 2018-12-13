@@ -1,0 +1,2 @@
+File WatchTower has a detected a file deletion. The attached document contains more details about this incident.
+Number of Deleted/Missing Files: %DELETION_COUNT%

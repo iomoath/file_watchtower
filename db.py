@@ -1,0 +1,373 @@
+#!/usr/local/bin/python3
+
+__author__ = "Moath Maharmeh"
+
+
+import sqlite3
+import os
+import csv
+
+DEFAULT_PATH = os.path.join(os.path.dirname(__file__), 'database.sqlite3')
+
+
+def get_db_path():
+    global DEFAULT_PATH
+
+    return DEFAULT_PATH
+
+
+def db_connect(db_path=DEFAULT_PATH):
+    con = sqlite3.connect(db_path)
+    return con
+
+
+def create_tables():
+    conn = db_connect()
+    cursor = conn.cursor()
+
+    file_record_query = """
+    CREATE TABLE IF NOT EXISTS file_record (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    file_path TEXT NOT NULL UNIQUE,
+    sha256 TEXT NOT NULL,
+    file_size TEXT NOT NULL,
+    exists_on_disk varchar(6) NOT NULL,
+    datetime_last_check TEXT NOT NULL)"""
+
+    email_msg_query = """
+    CREATE TABLE IF NOT EXISTS email_msg (
+    id INTEGER PRIMARY KEY,
+    subject TEXT NOT NULL,
+    body TEXT NOT NULL,
+    attachment TEXT,
+    is_sent VARCHAR(6) DEFAULT 'False')"""
+
+    cursor.execute(file_record_query)
+    cursor.execute(email_msg_query)
+    conn.commit()
+    conn.close()
+
+
+def insert_file_record(file_record_dict):
+    conn = db_connect()
+    cursor = conn.cursor()
+
+    try:
+        query = """
+            INSERT INTO file_record (file_path, sha256, file_size, exists_on_disk, datetime_last_check)
+            VALUES (?, ?, ?, ?, ?)"""
+        cursor.execute(query,
+                       (file_record_dict["path"], file_record_dict["sha256"], file_record_dict["file_size"],
+                        file_record_dict["exists_on_disk"], file_record_dict["datetime_last_check"]))
+        conn.commit()
+        return cursor.lastrowid
+    except:
+        conn.rollback()
+        raise
+
+
+def get_exists_on_disk_value(file_path):
+    conn = db_connect()
+    cursor = conn.cursor()
+
+    try:
+        cursor.execute("SELECT exists_on_disk FROM file_record WHERE file_path=? LIMIT 1", (file_path,))
+        rows = cursor.fetchall()
+        return rows[0][0]
+    except IndexError:
+        return None
+
+
+def get_exists_on_disk_value_by_hash(file_hash):
+    conn = db_connect()
+    cursor = conn.cursor()
+
+    try:
+        cursor.execute("SELECT exists_on_disk FROM file_record WHERE sha256=? LIMIT 1", (file_hash,))
+        rows = cursor.fetchall()
+        return rows[0][0]
+    except IndexError:
+        return None
+
+
+def update_exists_on_disk_value(file_path, new_value):
+    conn = db_connect()
+    cursor = conn.cursor()
+
+    try:
+        query = """UPDATE file_record SET exists_on_disk =? WHERE file_path =?"""
+        cursor.execute(query, (new_value, file_path,))
+        conn.commit()
+        return cursor.rowcount
+    except:
+        conn.rollback()
+        raise
+
+
+def update_exists_on_disk_value_by_hash(file_hash, new_value):
+    conn = db_connect()
+    cursor = conn.cursor()
+
+    try:
+        query = """UPDATE file_record SET exists_on_disk =? WHERE sha256 =?"""
+        cursor.execute(query, (new_value, file_hash,))
+        conn.commit()
+        return cursor.rowcount
+    except:
+        conn.rollback()
+        raise
+
+
+def update_file_last_check(file_path, new_datetime_check):
+    conn = db_connect()
+    cursor = conn.cursor()
+
+    try:
+        query = """UPDATE file_record SET datetime_last_check =? WHERE file_path =?"""
+        cursor.execute(query, (new_datetime_check, file_path,))
+        conn.commit()
+        return cursor.rowcount
+    except:
+        conn.rollback()
+        raise
+
+
+def update_file_path(file_hash, new_path):
+    conn = db_connect()
+    cursor = conn.cursor()
+
+    try:
+        query = """UPDATE file_record SET file_path =? WHERE sha256 =?"""
+        cursor.execute(query, (new_path, file_hash,))
+        conn.commit()
+        return cursor.rowcount
+    except:
+        conn.rollback()
+        raise
+
+
+def get_file_record(file_path):
+    conn = db_connect()
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT * FROM file_record WHERE file_path=? LIMIT 1", (file_path,))
+    rows = cursor.fetchall()
+
+    return rows[0]
+
+
+def get_file_record_by_hash(file_hash):
+    conn = db_connect()
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT * FROM file_record WHERE sha256=? LIMIT 1", (file_hash,))
+    rows = cursor.fetchall()
+
+    return rows[0]
+
+
+
+def get_all_file_paths():
+    # returns all files paths
+
+    conn = db_connect()
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT file_path FROM file_record")
+    rows = cursor.fetchall()
+
+    path_list = []
+    for row in rows:
+        path_list.append(row[0])
+
+    return path_list
+
+
+def get_file_hash(file_path):
+    conn = db_connect()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("SELECT sha256 FROM file_record WHERE file_path=? LIMIT 1", (file_path,))
+        rows = cursor.fetchall()
+        return rows[0][0]
+    except IndexError:
+        return None
+
+
+def get_file_path_by_hash(file_hash):
+    conn = db_connect()
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT file_path FROM file_record WHERE sha256=? LIMIT 1", (file_hash,))
+
+    rows = cursor.fetchall()
+    return rows[0][0]
+
+
+def is_file_has_record_by_path(file_path):
+    conn = db_connect()
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT id FROM file_record WHERE file_path=? LIMIT 1", (file_path,))
+
+    rows = cursor.fetchall()
+    return len(rows) > 0
+
+
+def is_file_has_record_by_hash(hash):
+    conn = db_connect()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id FROM file_record WHERE sha256=? LIMIT 1", (hash,))
+
+    rows = cursor.fetchall()
+    return len(rows) > 0
+
+
+def get_file_size(file_path):
+    conn = db_connect()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("SELECT file_size FROM file_record WHERE file_path=? LIMIT 1", (file_path,))
+        rows = cursor.fetchall()
+        return rows[0][0]
+    except IndexError:
+        return None
+
+
+def update_file_hash(file_path, new_hash):
+    conn = db_connect()
+    cursor = conn.cursor()
+
+    try:
+        query = """UPDATE file_record SET sha256 =? WHERE file_path =?"""
+        cursor.execute(query, (new_hash, file_path,))
+        conn.commit()
+        return cursor.rowcount
+    except:
+        conn.rollback()
+        raise
+
+
+def delete_file_record(file_path):
+    conn = db_connect()
+    cursor = conn.cursor()
+
+    try:
+        query = """DELETE FROM file_record WHERE file_path=?"""
+        cursor.execute(query, (file_path,))
+        conn.commit()
+        return cursor.rowcount
+    except:
+        conn.rollback()
+        raise
+
+
+def insert_email_msg(email_msg_dict):
+    conn = db_connect()
+    cursor = conn.cursor()
+
+    try:
+        query = """
+            INSERT INTO email_msg (subject, body, attachment)
+            VALUES (?, ?, ?)"""
+
+        cursor.execute(query,
+                       (
+                           email_msg_dict["subject"],
+                           email_msg_dict["body"],
+                           email_msg_dict["attachment"]))
+        conn.commit()
+        return cursor.lastrowid
+    except:
+        conn.rollback()
+        raise
+
+
+def delete_msg(msg_id):
+    conn = db_connect()
+    cursor = conn.cursor()
+
+    try:
+        query = """DELETE FROM email_msg WHERE id=?"""
+        cursor.execute(query, (msg_id,))
+        conn.commit()
+        return cursor.rowcount
+    except:
+        conn.rollback()
+        raise
+
+
+def get_unsent_messages():
+    conn = db_connect()
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT * FROM email_msg WHERE is_sent='False'")
+
+    rows = cursor.fetchall()
+
+    list_messages = []
+
+    for row in rows:
+        msg = {
+            "id": row[0],
+            "subject": row[1],
+            "body": row[2],
+            "attachments": row[3],
+            "is_sent": row[4]
+        }
+        list_messages.append(msg)
+
+    return list_messages
+
+
+def delete_sent_messages():
+    conn = db_connect()
+    cursor = conn.cursor()
+
+    try:
+        query = """DELETE FROM email_msg WHERE is_sent=?"""
+        cursor.execute(query, ("True",))
+        conn.commit()
+        return cursor.rowcount
+    except:
+        conn.rollback()
+        raise
+
+
+def dump_file_records_to_csv(export_path):
+    conn = db_connect()
+    cursor = conn.cursor()
+
+    cursor.execute('SELECT * FROM file_record')
+
+    with open(export_path, 'w') as out_csv_file:
+        csv_out = csv.writer(out_csv_file)
+
+        # write header
+        csv_out.writerow([d[0] for d in cursor.description])
+
+        # write data
+        for result in cursor:
+            csv_out.writerow(result)
+
+    conn.close()
+
+
+def delete_all_data():
+    conn = db_connect()
+    cursor = conn.cursor()
+
+    try:
+        query1 = """DELETE FROM email_msg"""
+        query2 = """DELETE FROM file_record"""
+        cursor.execute(query1, )
+        cursor.execute(query2, )
+        conn.commit()
+        return cursor.rowcount
+    except:
+        conn.rollback()
+        raise
+
+
+# init the database, if no db file or tables, it will be created here
+create_tables()
