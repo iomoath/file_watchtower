@@ -1,6 +1,6 @@
 # File WatchTower
 
-File WatchTower project is a lightweight and basic file integrity montiroing tool. File WatchTower is able to detect, log and report a modification in a file content, file deletion, file renaming and file creation. Whenever an violation is occurs, File WatchTower will notify you by Email and also will produce logs about the incident.
+File WatchTower project is a lightweight and File Integrity Montiroing Tool. File WatchTower is able to detect, log and report a modification in a file content, file deletion, file renaming and file creation. Whenever an violation is occurs, File WatchTower will notify you by Email and also will produce logs about the incident.
 
 Example scenarios:
 - Detect unauthorized file content modification. ex; configuration files and source code.
@@ -15,7 +15,7 @@ Preferable location: '/opt'
 
 2. Add the files and directories that should be watched in the file 'watch_list.txt' new line separated
 
-# Single File Format:
+Single File Format:
 ```
 /var/www/html/config.php
 ```
@@ -57,6 +57,11 @@ watchtower.py --run
 --version    show program's version number and exit
 
 ```
+
+# Screenshots
+![Email Alerts](File_WathTower_Alerts.png?raw=true "Email Alerts")
+
+
 
 # Contact Us
 
