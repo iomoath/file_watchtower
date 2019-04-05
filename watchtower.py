@@ -1,4 +1,3 @@
-#!/usr/local/bin/python3
 __author__ = "Moath Maharmeh"
 
 """
@@ -15,14 +14,17 @@ import sys
 import watchtower_core
 import db
 
+arg_parser = None
+
 
 def run(args):
-    if args["init"]:
-        watchtower_core.start_initial_scan()
-    elif args["run"]:
-        watchtower_core.scan()
+
+    if args['routine_scan']:
+        watchtower_core.start_scan(False)
+    elif args['silent_scan']:
+        watchtower_core.start_scan(True)
     elif args["export_db"]:
-        export_path = input("Enter the path that you would like to: ")
+        export_path = input("Enter the output path: ")
         watchtower_core.export_file_records_to_csv(export_path)
     elif args["reset"]:
         ans = input("WARNING: This will delete all records stored in the database. Do you really want to continue [Y/N]? ")
@@ -31,33 +33,48 @@ def run(args):
             print("Database has been cleared.")
         else:
             sys.exit()
+    else:
+        arg_parser.print_help()
+        sys.exit()
+
+def generate_argparser():
+
+    ascii_logo = """
+ ________  _   __          ____      ____      _          __       _                                      
+|_   __  |(_) [  |        |_  _|    |_  _|    / |_       [  |     / |_                                    
+  | |_ \_|__   | | .---.    \ \  /\  / /,--. `| |-'.---.  | |--. `| |-' .--.   _   _   __  .---.  _ .--.  
+  |  _|  [  |  | |/ /__\\    \ \/  \/ /`'_\ : | | / /'`\] | .-. | | | / .'`\ \[ \ [ \ [  ]/ /__\\[ `/'`\] 
+ _| |_    | |  | || \__.,     \  /\  / // | |,| |,| \__.  | | | | | |,| \__. | \ \/\ \/ / | \__., | |     
+|_____|  [___][___]'.__.'      \/  \/  \'-;__/\__/'.___.'[___]|__]\__/ '.__.'   \__/\__/   '.__.'[___]    
+ 
+
+    https://github.com/iomoath/file_watchtower
+    """
+    ap = argparse.ArgumentParser(ascii_logo)
+
+    ap.add_argument("-r", "--routine_scan", action='store_true',
+                    help="This is the routine scan and usually executed by OS cron manager. "
+                         "The routine scan type, Will scan and report the changes that occurs within the directories or files being watched")
+
+    ap.add_argument("-s", "--silent-scan", action='store_true',
+                    help="This type of scan will parse the watch list file (watch_list.txt) and create a records for the file(s). no alarms and notifications will be made. Use this option whenever you add new files into the directories being watched.")
+
+    ap.add_argument("--export-db", action='store_true',
+                    help="Export the database file records to a CSV file.")
+
+    ap.add_argument("--reset", action='store_true',
+                    help="Empty the file records database.")
+
+    ap.add_argument("--version", action="version", version='File WatchTower Version 1.1')
+
+    return ap
 
 
 def main():
-    ap = argparse.ArgumentParser()
+    global arg_parser
+    arg_parser = generate_argparser()
 
-    ap.add_argument("-i", "--init", action='store_true',
-                    help="This Type of scan is executed to scan the Watch List "
-                         "file and create file records in the database for the first time. "
-                         "Execute this scan whenever you add new files into the directories being watched.")
-
-    ap.add_argument("-r", "--run", action='store_true',
-                    help="This is the routine scan and usually executed by OS cron manager. "
-                         "Will scan for 'File content change', 'File deletion', "
-                         "'File Rename' and will detect new files in the directories being watched.")
-
-    ap.add_argument("--export-db", action='store_true',
-                    help="Export the database file records to a CSV file 'file_records.csv'")
-
-    ap.add_argument("--reset", action='store_true',
-                    help="--reset: Empty the File WatchTower database.")
-
-    ap.add_argument("--version", action="version", version='File WatchTower Version 1.0')
-
-    if len(sys.argv) < 2:
-        ap.print_help()
-        sys.exit(0)
-    args = vars(ap.parse_args())
+    args = vars(arg_parser.parse_args())
     run(args)
 
 

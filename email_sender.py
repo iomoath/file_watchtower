@@ -1,5 +1,3 @@
-#!/usr/local/bin/python3
-
 """
 Email sender with attachment support
 """
@@ -18,9 +16,7 @@ COMMASPACE = ', '
 def send_message(dict_msg_attr):
     """
     Send email message, support multiple attachments
-
     Example param:
-
     dict_msg = {
     "username": "testk@gmail.com",
     "password": "123456",
@@ -41,7 +37,7 @@ def send_message(dict_msg_attr):
 
     username = dict_msg_attr["username"]
     password = dict_msg_attr["password"]
-    smtp_host = dict_msg_attr["server"]
+    smtp_host = dict_msg_attr["host"]
     smtp_port = int(dict_msg_attr["port"])
     smtp_ssl = bool(dict_msg_attr["ssl"])
     recipients = dict_msg_attr["recipients"]

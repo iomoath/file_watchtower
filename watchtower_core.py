@@ -1,26 +1,30 @@
-#!/usr/local/bin/python3
 __author__ = "Moath Maharmeh"
+__license__ = "GNU General Public License v2.0"
+__version__ = "1.1"
+__email__ = "moath@vegalayer.com"
+__created__ = "13/Dec/2018"
+__modified__ = "5/Apr/2019"
+__project_page__ = "https://github.com/iomoath/file_watchtower"
+
 
 """
 Core functionally module of File WatchTower
-
-Created By: Moath Maharmeh
-Contact: moath@vegalayer.com
 """
 
-import hashlib
 import os
 import sqlite3
 import sys
 
 import db
-import extensions
-import file_scanner
 import logger
 from watchtower_settings import EMAIL_NOTIFICATIONS_ENABLED
 from watchtower_settings import WATCH_LIST_FILE_PATH
+from watchtower_settings import TO
 import notifier
 
+import functions
+
+module_name = os.path.basename(__file__)
 FILE_COUNTER = 0  # file counter to count how many files processed during the scan process
 
 
@@ -29,172 +33,170 @@ def reset_processed_files_counter():
     FILE_COUNTER = 0
 
 
-def sha256_file(file_path):
-    with open(file_path, "rb") as f:
-        file_bytes = f.read()
-        return hashlib.sha256(file_bytes).hexdigest()
-
-
-def get_watch_dir_info(line):
+def build_watch_option(line):
     """
-    line format: directory path, bool: scan_sub folders, list: excluded extensions, int: max file size in byte unit
-    :param line: a line extracted from WATCH_LIST_FILE_PATH
+    Build structured options dictionary from a given string.
+    string format: directory path, bool: scan_sub folders, list: excluded extensions, int: max file size in byte unit
+    :param line: a line extracted from WATCH_LIST_FILE_PATH (watch_list.txt)
     :return: dict contains directory path, is_recursive_scan, excluded_extensions, max_file_size
     """
     try:
         parts = line.split(',')
-        directory_info = {"path": parts[0].strip(),
-                          "is_recursive": parts[1].strip(),
-                          "excluded_extensions": parts[2].strip().split('|'),
-                          "max_size": int(parts[3])
-                          }
+        directory_info = {}
 
-        if directory_info["is_recursive"] == 'yes':
-            directory_info["is_recursive"] = True
-        elif directory_info["is_recursive"] == 'no':
-            directory_info["is_recursive"] = False
-        else:
-            return None
+        # Try parse path
+        try:
+            path = parts[0].strip()
+            directory_info["watch_path"] = path
+            directory_info["exists_on_disk"] = path
 
-        if os.path.isdir(directory_info["path"]) and len(directory_info) == 4:
-            return directory_info
-    except IndexError:
+            if directory_info["exists_on_disk"]:
+                if os.path.isfile(path):
+                    directory_info['path_type'] = 'file'
+                elif os.path.isdir(path):
+                    directory_info['path_type'] = 'dir'
+        except:
+            return None # at least, path is required
+
+        # Try parse is_recursive option
+        try:
+            parts_b = parts[1].strip()
+
+            if parts_b == 'true':
+                directory_info["is_recursive"] = True
+            else:
+                directory_info["is_recursive"] = False
+        except:
+            return directory_info # no need to continue, as we reached the end of parts[]
+
+        # Try parse excluded extensions
+        try:
+            directory_info['excluded_extensions'] = parts[2].strip().split('|')
+        except:
+            directory_info['excluded_extensions'] = []
+
+        # Try parse max file length option
+        try:
+            directory_info['max_file_size'] = int(parts[3])
+        except:
+            directory_info['max_file_size'] = -1
+
+        return directory_info
+    except:
         return None
 
 
-def filter_file(file_path, excluded_extensions, max_size):
+def build_watch_option_list(watch_list_file_lines):
+    watch_options_list = []
+
+    for line in watch_list_file_lines:
+        watch_options = build_watch_option(line)
+
+        if watch_options is not None:
+            watch_options_list.append(watch_options)
+    return watch_options_list
+
+
+def get_directory_file_set(directory_path, is_recursive):
+
+    # Get file path set
+    if is_recursive:
+        file_path_set = functions.get_directory_file_set_recursive(directory_path, files_only=True)
+    else:
+        file_path_set = functions.get_directory_file_set(directory_path, files_only=True)
+
+    return file_path_set
+
+
+def filter_file(file_path, disallowed_extensions, max_size):
     """
-    Filters a file path against a filters excluded extensions and max file size
-    :param file_path: File path
-    :param excluded_extensions: List of excluded extensions
+    Check if a file pass the provided filters.
+    :param file_path: Path to file
+    :param disallowed_extensions: List of disallowed extensions, separated by comma. ex; .txt, png. will check if file name end with
     :param max_size: max file size. file_path should not exceed the max_size value
     :return: None if file_path not passed the filters or file_path if filter pass.
     """
     try:
-        if os.path.getsize(file_path) > max_size:
+        if not os.path.exists(file_path):
             return None
 
-        for extension in excluded_extensions:
-            if file_path.endswith(extension):
+        if max_size > 0:
+            if os.path.getsize(file_path) > max_size:
                 return None
 
+        if disallowed_extensions is not None:
+            for ext in disallowed_extensions:
+                if file_path.endswith(ext):
+                    return None
+
         return file_path
-    except:
-        logger.log_debug("filter_file: An error has occurred while filtering the file '{}'".format(file_path),
-                         os.path.basename(__file__))
-        pass
+    except Exception as e:
+        logger.log_error("filter_file(): An error has occurred while filtering the file '{}' Error: {}".format(file_path, e),
+                         module_name)
+        return None
 
 
-def filter_file_path_list(file_path_list, excluded_extensions, max_size):
-    filtered_file_path_list = []
+def filter_file_path_set(file_path_set, disallowed_extensions, max_size):
 
-    for file_path in file_path_list:
-        logger.log_debug("filter_file_path_list(): Processing '{}'".format(file_path), os.path.basename(__file__))
-        file_path = str(file_path)
+    if disallowed_extensions is None and max_size <= 0: # No valid filters
+        return file_path_set
 
-        if filter_file(file_path, excluded_extensions, max_size) is not None:
-            logger.log_debug("filter_file_path_list(): Processed '{}'".format(file_path), os.path.basename(__file__))
-            filtered_file_path_list.append(file_path)
+    filtered_file_path_set = set()
 
-    return filtered_file_path_list
+    for file_path in file_path_set:
+        logger.log_debug("filter_file_path_list(): Processing '{}'".format(file_path), module_name)
 
+        if filter_file(file_path, disallowed_extensions, max_size) is not None:
+            logger.log_debug("filter_file_path_list(): Processed '{}'".format(file_path), module_name)
+            filtered_file_path_set.add(file_path)
 
-def get_file_path_list(dir_info):
-    """
-    :param dir_info: a line from WATCH_LIST_FILE_PATH file
-    :param dir_info: ex; '/var/www/html/wordpress/wp-content/themes', 'True', ['.css', '.woff', '.ttf'], 1048576
-    :return: a list contain all file paths in the dir, includes files in sub-dirs if recursive scan is requested
-    """
-    root_dir_path = dir_info["path"]
-
-    # Get file path list
-    if dir_info["is_recursive"]:
-        file_path_list = file_scanner.get_file_list_in_dir(root_dir_path, True)
-    else:
-        file_path_list = file_scanner.get_file_list_in_dir(root_dir_path, False)
-
-    # Filter file path
-    filtered_path_list = filter_file_path_list(file_path_list, dir_info["excluded_extensions"], dir_info["max_size"])
-
-    return filtered_path_list
-
-
-def get_dir_path_list(dir_info):
-    """
-    :param dir_info: a line from WATCH_LIST_FILE_PATH file
-    :param dir_info: ex; '/var/www/html/wordpress/wp-content/themes', 'True', ['.css', '.woff', '.ttf'], 1048576
-    :return: a list contain all directory paths in the dir, includes files in sub-dirs if recursive scan is requested
-    """
-    dir_path_list = []
-
-    root_dir_path = dir_info["path"]
-
-    # Get sub-dirs path list
-    if dir_info["is_recursive"]:
-        dir_path_list = extensions.get_dir_path_list(root_dir_path)
-
-    return dir_path_list
+    return filtered_file_path_set
 
 
 def process_watch_list(watch_list):
     """
-    # Step #2
-    # Directory Format: directory path, scan_sub folders, excluded extensions, max file size in byte unit
-    # comma separated, length 4 means a directory format
-    # Single File Format: full_file_path
-    :param watch_list: list contains lines of the file WATCH_LIST_FILE_PATH
+    :param watch_list: list contains lines of the file WATCH_LIST_FILE_PATH (watch_list.txt)
     :return: filtered file path list
     """
-    file_path_list = []
-    for line in watch_list:
-        try:
-            # check if the line is a directory format with args
-            logger.log_debug("process_watch_list(): Processing '{}'".format(line), os.path.basename(__file__))
-            watch_dir = get_watch_dir_info(line)
-            if watch_dir is not None:
-                logger.log_debug("process_watch_list(): Processed '{}'".format(line), os.path.basename(__file__))
-                file_path_list += get_file_path_list(watch_dir)
+    file_path_set = set()
+    watch_options_list = build_watch_option_list(watch_list)
 
+    for options in watch_options_list:
+        try:
             # check if the line is a file path
-            elif os.path.isfile(line):
-                logger.log_debug("process_watch_list(): Processed '{}'".format(line), os.path.basename(__file__))
-                file_path_list.append(line)
-                continue
+            if options['path_type'] == 'file':
+                file_path_set.add(options['watch_path'])
+
+            elif options['path_type'] == 'dir':
+                file_path_set = get_directory_file_set(options['watch_path'], options['is_recursive'])
+                file_path_set = filter_file_path_set(file_path_set, options['excluded_extensions'], options['max_file_size'])
 
             # check if file has a record in the DB.
             # If the file has record in the Db, then it might be deleted or moved
             # add the path to file_path_list so the integrity_check function can report this incident
             try:
-                if not os.path.exists(line) and watch_dir is None:
-                    file_hash_in_db = db.get_file_hash(line)
-
+                if not options['exists_on_disk']:
+                    file_hash_in_db = db.get_file_hash(options['watch_path'])
                     if file_hash_in_db is not None:
-                        logger.log_debug("process_watch_list(): Processed '{}'".format(line),
-                                         os.path.basename(__file__))
-                        file_path_list.append(line)
+                        file_path_set.add(options['watch_path'])
             except IndexError:
                 continue
 
-        except:
-            logger.log_debug("process_watch_list(): An error has occurred while processing the line"
-                             " '{}' More Info: {}".format(line, sys.exc_info()),
-                             os.path.basename(__file__))
-            # print(sys.exc_info()[0])
+        except Exception as e:
+            logger.log_error("process_watch_list(): An error has occurred while processing the line"
+                             " '{}' More Info: {}".format(options['watch_path'], e), module_name)
             pass
 
-    # eliminate duplicate file paths, convert to a set
-    file_path_set = extensions.convert_list_to_set(file_path_list)
     return file_path_set
 
 
 def read_file_watch_list():
     """
-    Reads WATCH_LIST_FILE_PATH file and returns content
-    Step #1
+    Reads WATCH_LIST_FILE_PATH (watch_list.txt) file and returns content
     """
 
     if not os.path.exists(WATCH_LIST_FILE_PATH):
-        log_msg = extensions.get_file_does_not_exist_msg(WATCH_LIST_FILE_PATH)
+        log_msg = functions.get_file_does_not_exist_msg(WATCH_LIST_FILE_PATH)
         logger.log_critical(log_msg, os.path.basename(__file__))
 
         if EMAIL_NOTIFICATIONS_ENABLED:
@@ -204,18 +206,17 @@ def read_file_watch_list():
     try:
         file_stream = open(WATCH_LIST_FILE_PATH, "r")
     except IOError as e:
-        log_msg = extensions.get_file_read_error_msg(WATCH_LIST_FILE_PATH, e.errno, e.strerror)
-        logger.log_critical(log_msg,
-                            os.path.basename(__file__))
+        log_msg = functions.get_file_read_error_msg(WATCH_LIST_FILE_PATH, e.errno, e.strerror)
+        logger.log_critical(log_msg, module_name)
         if EMAIL_NOTIFICATIONS_ENABLED:
             notifier.queue_email_message_text(notifier.TEMPLATE.WATCHLIST_FILE_READ_ERROR, notifier.ALERT_LEVEL.CRITICAL, None)
-        sys.exit("Unable to read watch list file '{}'".format(WATCH_LIST_FILE_PATH))
+        sys.exit("[-] Unable to read watch list file '{}'".format(WATCH_LIST_FILE_PATH))
     else:
         with file_stream:
             file_content = file_stream.readlines()
 
             if not file_content:
-                log_msg = extensions.get_file_empty_error_msg(WATCH_LIST_FILE_PATH)
+                log_msg = functions.get_file_empty_error_msg(WATCH_LIST_FILE_PATH)
                 logger.log_critical(log_msg, os.path.basename(__file__))
 
                 if EMAIL_NOTIFICATIONS_ENABLED:
@@ -227,72 +228,39 @@ def read_file_watch_list():
     return lines
 
 
-def create_file_record(file_path):
-    """
-        # Calculate sha256 for given file path then insert a record in the database
-        # FILE_COUNTER is increased by 1 for each file processed successfully
-        :param file_path: file path
-        :return: nothing
-        """
-
-    global FILE_COUNTER
-
-    if not os.path.isfile(file_path):
-        return None
-    try:
-        logger.log_debug("create_file_record(): Creating a DB file record for '{}'".format(file_path),
-                         os.path.basename(__file__))
-
-        sha256 = sha256_file(file_path)
-        check_date = extensions.get_current_datetime()
-        file_size = extensions.get_file_size(file_path)
-        file_record = {"path": file_path, "sha256": sha256, "file_size": file_size, "exists_on_disk": "True",
-                       "datetime_last_check": check_date}
-
-        if db.insert_file_record(file_record) > 0:
-            logger.log_debug("create_file_record(): Created a DB file record for '{}'".format(file_path),
-                             os.path.basename(__file__))
-            FILE_COUNTER += 1
-        else:
-            logger.log_debug("create_file_record(): Failed to create a DB file record for '{}'".format(file_path),
-                             os.path.basename(__file__))
-
-    except sqlite3.IntegrityError:
-        logger.log_debug("create_file_record(): The file '{}' is already exist in the database".format(file_path),
-                         os.path.basename(__file__))
-
-
 def db_cleanup():
     """
     Database cleanup, removes file records from the database that is no longer exist in the watch list file (WATCH_LIST_FILE_PATH)
     :return: None if error occurred during reading the path list from watch list or the database
     """
-    logger.log_debug("db_cleanup(): Starting database cleanup.", os.path.basename(__file__))
-
+    logger.log_debug("db_cleanup():Started a database cleanup.", module_name)
     path_list = read_file_watch_list()  # from watch list file
 
     file_path_list = []
     dir_path_list = []
 
-    logger.log_debug("db_cleanup(): Scanning Watch list file...", os.path.basename(__file__))
+    logger.log_debug("db_cleanup():Scanning Watch list file '{}'".format(WATCH_LIST_FILE_PATH), module_name)
+
     for line in path_list:
         try:
-            logger.log_debug("db_cleanup(): Processing '{}'".format(line), os.path.basename(__file__))
-            watch_dir = get_watch_dir_info(line)
-            if watch_dir is not None:
-                dir_path_list.append(watch_dir["path"])
-                logger.log_debug("db_cleanup(): Processed '{}'".format(line), os.path.basename(__file__))
+            logger.log_debug("db_cleanup(): Processing '{}'".format(line), module_name)
 
-            # check if the line is a file path
-            elif os.path.isfile(line):
-                logger.log_debug("db_cleanup(): Processed '{}'".format(line), os.path.basename(__file__))
-                file_path_list.append(line)
-                continue
-        except:
-            logger.log_debug("db_cleanup(): An error has occurred while processing the line '{}'".format(line), os.path.basename(__file__))
+            watch_options = build_watch_option(line)
+            if watch_options is not None:
+                if watch_options["path_type"] == 'dir':
+                    dir_path_list.append(watch_options['watch_path'])
+                elif watch_options["path_type"] == 'file':
+                    file_path_list.append(watch_options['watch_path'])
+
+                logger.log_debug("db_cleanup(): Processed '{}'".format(line), module_name)
+
+        except Exception as e:
+            logger.log_error("db_cleanup(): An error has occurred while processing the line '{}' Error: {}".format(line, e), module_name)
             continue
 
+    # get all paths from database
     file_path_list_in_db = db.get_all_file_paths()
+
     for path in file_path_list_in_db:
         try:
             in_watch_list_file = False
@@ -301,44 +269,71 @@ def db_cleanup():
                 in_watch_list_file = True
 
             for dir_path in dir_path_list:
-                if in_directory(path, dir_path):
+                if functions.in_directory(path, dir_path):
                     in_watch_list_file = True
 
             if not in_watch_list_file:
                 logger.log_debug("db_cleanup(): Removing '{}' from the database.".format(path),
-                                 os.path.basename(__file__))
+                                 module_name)
                 db.delete_file_record(path)
-                logger.log_debug("db_cleanup(): Removed '{}' from the database.".format(path),
-                                 os.path.basename(__file__))
-        except:
-            logger.log_debug("db_cleanup(): An error has occurred while processing '{}' from the database."
-                             " More info: {}".format(path, sys.exc_info()), os.path.basename(__file__))
+                logger.log_debug("db_cleanup(): Removed '{}' from the database.".format(path), module_name)
+        except Exception as e:
+            logger.log_error("db_cleanup(): An error has occurred while processing '{}' from the database. Error: {}".format(path, e), module_name)
             continue
+
+
+def create_file_record(file_path):
+    """
+        # Calculate sha256 for given file path then insert a record into the database
+        # FILE_COUNTER is increased by 1 if file processed successfully
+        :param file_path: file path
+        :return: True if db insertion success, false if insertion failed
+        """
+    if not os.path.isfile(file_path):
+        return False
+
+
+    try:
+        logger.log_debug("create_file_record(): Creating a record for '{}'".format(file_path), module_name)
+
+        sha256 = functions.sha256_file(file_path)
+        check_date = functions.get_datetime()
+        file_size = functions.get_file_size(file_path)
+
+        file_record = {"path": file_path, "hash": sha256, "file_size": file_size, "exists_on_disk": "True",
+                       "datetime_last_check": check_date}
+
+        if db.insert_file_record(file_record) > 0:
+            print("[+] Created a record for '{}'".format(file_path))
+            logger.log_debug("create_file_record(): Created a DB file record for '{}'".format(file_path), module_name)
+            return True
+        else:
+            print("[+] Failed to create a record for '{}'".format(file_path))
+            logger.log_debug("create_file_record(): Failed to create a DB file record for '{}'".format(file_path),
+                             module_name)
+            return False
+
+    except sqlite3.IntegrityError:
+        print("[*] Ignoring '{}' Already has a record.".format(file_path))
+        logger.log_debug("create_file_record(): The file '{}' is already exist in the database".format(file_path),
+                         module_name)
+        return False
 
 
 def create_files_records(path_list):
     """
-    # Calculate sha256 for each file and then insert a record in the database
+    # Calculate hash for each file and then insert a record into the database
     # FILE_COUNTER is increased by 1 for each file processed successfully
     :param path_list: file path list
     :return: nothing
     """
+    global FILE_COUNTER
+
     for path in path_list:
-        logger.log_debug("create_files_records(): Processing '{}'".format(path), os.path.basename(__file__))
-        create_file_record(path)
-
-
-def in_directory(file, directory):
-    """
-    Checks if a given file path is located in a sub-directory of a another dir
-    :param file: File path
-    :param directory: root path
-    :return: True if file is in a sub-directory of "directory"
-    """
-    directory = os.path.join(os.path.realpath(directory), '')
-    file = os.path.realpath(file)
-
-    return os.path.commonprefix([file, directory]) == directory
+        logger.log_debug("create_files_records(): Processing '{}'".format(path), module_name)
+        if create_file_record(path):
+            FILE_COUNTER += 1
+            logger.log_debug("create_files_records(): Processed '{}'".format(path), module_name)
 
 
 def is_file_renamed(file_hash, file_path_in_db):
@@ -351,101 +346,111 @@ def is_file_renamed(file_hash, file_path_in_db):
     return not os.path.isfile(file_path_in_db) and db.is_file_has_record_by_hash(file_hash)
 
 
+def is_watch_options_list_contains_file_path(watch_options_list, file_path):
+    if watch_options_list is None:
+        return False
+
+    for dictionary in watch_options_list:
+        if dictionary['watch_path'] == file_path:
+            return True
+    return False
+
+
 def get_file_path_list_in_db_not_exists_on_disk():
-    file_path_list = []  # list of file paths
-    dir_path_list = []  # list of directory paths, include sub-folders paths if recursive is enabled
     file_path_db_list = db.get_all_file_paths()  # list of file paths from database
     deleted_file_list = []  # list of confirmed deleted files paths
 
-    logger.log_debug("scan_for_file_deletion(): Detecting File deletion...", os.path.basename(__file__))
-
     # Get file path list (watch list)
-    logger.log_debug("scan_for_file_deletion(): Reading watch list file.", os.path.basename(__file__))
+    logger.log_debug("scan_for_file_deletion(): Reading watch list file.", module_name)
     watch_list = read_file_watch_list()
 
     # fill file_path_list & dir_path_list by processing watch_list lines
-    for line in watch_list:
-        try:
-            # check if the line is a directory format with args
-            watch_dir = get_watch_dir_info(line)
-            if watch_dir is not None:
-                dir_path_list.append(watch_dir)
-
-            # check if the line is a file path
-            elif os.path.isfile(line) or os.access(os.path.dirname(line), os.W_OK):
-                file_path_list.append(line)
-                continue
-        except ValueError:
-            continue
+    watch_options_list = build_watch_option_list(watch_list)
 
     # Detect file deletion, if a file path in the database is not exist on disk
-    # means that file is deleted
+    # means that file is deleted or moved
     # process file_path_list & dir_path_list
     for file_path in file_path_db_list:
-        logger.log_debug("detect_file_deletion(): Processing '{}' ".format(file_path), os.path.basename(__file__))
+        logger.log_debug("detect_file_deletion(): Processing '{}' ".format(file_path), module_name)
 
         # Check if file exists on disk
         is_missing_on_disk = False
         db_exists_on_disk_value = db.get_exists_on_disk_value(file_path)
-
-        if not os.path.isfile(file_path):
+        if not os.path.exists(file_path):
             # Check if file is exists in watch_list file
-            if file_path in file_path_list:
+            if is_watch_options_list_contains_file_path(watch_options_list, file_path):
                 is_missing_on_disk = True
             else:
                 # Check if file is located in a sub-dirs of watch-list dirs
-                for dir_info in dir_path_list:
-                    if dir_info["is_recursive"] and in_directory(file_path, dir_info["path"]):
+                for options in watch_options_list:
+                    if options["is_recursive"] and functions.in_directory(file_path, options["watch_path"]):
                         is_missing_on_disk = True
 
-                    elif os.path.dirname(os.path.abspath(file_path)) == dir_info["path"]:
+                    elif os.path.dirname(os.path.abspath(file_path)) == options["watch_path"]:
                         is_missing_on_disk = True
 
         if is_missing_on_disk and db_exists_on_disk_value == "True":
             deleted_file_list.append(file_path)
             db.update_exists_on_disk_value(file_path, "False")
-            logger.log_warning("'{}' is deleted or can not be accessed".format(file_path),
-                                       os.path.basename(__file__))
+            logger.log_warning("'{}' is deleted or can not be accessed".format(file_path), module_name)
 
         elif not is_missing_on_disk and db_exists_on_disk_value == "False":
-                logger.log_warning("'{}' was missing from disk. File is now available now on disk".format(file_path),
-                                   os.path.basename(__file__))
+                logger.log_warning("'{}' was missing from disk. File is now available now on disk".format(file_path), module_name)
                 db.update_exists_on_disk_value(file_path, "True")
 
-        logger.log_debug("detect_file_deletion(): Processed '{}' ".format(file_path), os.path.basename(__file__))
+        logger.log_debug("detect_file_deletion(): Processed '{}' ".format(file_path), module_name)
 
     return deleted_file_list
 
 
-def start_routine_scan(path_list):
+
+def start_routine_scan():
     """
-    # Checks if the given files is changed since last hash check.
-    # Detects new files added and has no record in the DB (is genuinely added ?).
+    # Checks if the registered file(s) hash changed since last hash check.
+    # Detects new files added in directories being watched and has no record in the DB (is genuinely added ?).
     # Detects if a file(s) is deleted from disk.
-    :param path_list: file path list
+    # Detects if a file(s) is renamed.
     :return: tuple (list of files that is changed since last check, list of files that has no record in th db,
     list of files that is deleted from disk and has a record in the DB)
     """
+
+    logger.log_debug("Started a routine scan", module_name)
+    print("[+] Started a routine scan")
+
     files_changed_list = []  # path's for files that has been changed, hash does not match
     new_files_path_list = []  # path's for new files added since last scan. (no record in the DB)
     deleted_files_path_list = []  # path's for files deleted from disk but has a record in the DB.
     renamed_files_path_list = []  # path's for files that has been renamed
 
+    reset_processed_files_counter()
+
+    # Get file path list
+    watch_list_file_lines = read_file_watch_list()
+
+    # Get file path list
+    file_path_list = process_watch_list(watch_list_file_lines)
+
+    # Exclude DB file
+    db_path = db.get_db_path()
+    if db_path in file_path_list:
+        file_path_list.remove(db_path)
+
+
     # Detect new files in dirs being watched
     # Detect File change
     # Detect File rename
-    for file_path in path_list:
-        logger.log_debug("start_routine_scan(): Processing '{}' ".format(file_path), os.path.basename(__file__))
+    for file_path in file_path_list:
+        logger.log_debug("start_routine_scan(): Processing '{}' ".format(file_path), module_name)
         try:
-            sha256 = sha256_file(file_path)
-            file_size = extensions.get_file_size(file_path)
+            file_hash = functions.sha256_file(file_path)
+            file_size = functions.get_file_size(file_path)
             file_path_in_db = None
-            sha256_in_db = None
+            file_hash_in_db = None
             file_size_in_db = None
 
             try:
-                if db.is_file_has_record_by_hash(sha256):
-                    file_db_record = db.get_file_record_by_hash(sha256)
+                if db.is_file_has_record_by_hash(file_hash):
+                    file_db_record = db.get_file_record_by_hash(file_hash)
                 else:
                     file_db_record = db.get_file_record(file_path)
 
@@ -455,66 +460,72 @@ def start_routine_scan(path_list):
 
             if has_a_db_record:
                 file_path_in_db = file_db_record[1]
-                sha256_in_db = file_db_record[2]
+                file_hash_in_db = file_db_record[2]
                 file_size_in_db = file_db_record[3]
+
 
             # Detect File rename
             if file_path_in_db is not None:
-                renamed = is_file_renamed(sha256, file_path_in_db)
+                renamed = is_file_renamed(file_hash, file_path_in_db)
                 if renamed:
-                    incident = {"old_path": file_path_in_db, "new_path": file_path, "sha256": sha256,
-                                "detection_time": extensions.get_current_datetime()}
+                    incident = {"old_path": file_path_in_db, "new_path": file_path, "hash": file_hash,
+                                "detection_time": functions.get_datetime()}
                     renamed_files_path_list.append(incident)
-                    db.update_file_path(sha256, file_path)
+                    db.update_file_path(file_hash, file_path)
                     db.update_exists_on_disk_value(file_path, "True")
 
-                    logger.log_warning("Detected File Rename. Old Name '{}' New Name '{} '".format(file_path_in_db, file_path),
-                                     os.path.basename(__file__))
+                    print("[*] Detected a file RENAME. '{}' => '{}'".format(file_path_in_db, file_path))
+                    logger.log_warning("Detected a file RENAME. '{}' => '{}'".format(file_path_in_db, file_path),
+                                     module_name)
 
                     continue
 
+
             # Check if it's a new file
             if not has_a_db_record:
-                file_record_dict = {"path": file_path, "sha256": sha256, "size": file_size,
-                                    "detection_time": extensions.get_current_datetime()}
+                file_record_dict = {"path": file_path, "hash": file_hash, "size": file_size,
+                                    "detection_time": functions.get_datetime()}
                 new_files_path_list.append(file_record_dict)
                 create_file_record(file_path)
-                logger.log_info("New file detected '{}' a record for the file has been added to the database. "
-                                "File hash: '{}' File size: '{}'".format(file_path, sha256, file_size),
-                                os.path.basename(__file__))
-                logger.log_debug("start_routine_scan(): Processed '{}' ".format(file_path), os.path.basename(__file__))
+
+                print("[*] New file detected '{}' '{}'".format(file_path, file_hash))
+
+                logger.log_info("New file detected '{}' '{}' '{}'".format(file_path, file_hash, file_size),
+                                module_name)
+                logger.log_debug("start_routine_scan(): Processed '{}' ".format(file_path), module_name)
                 continue
 
             # Detect file change
             # check if the file is changed since last check
-            if sha256_in_db is not None and sha256 != sha256_in_db:
+            if file_hash_in_db is not None and file_hash != file_hash_in_db:
                 # update the DB with the new file hash
-                db.update_file_hash(file_path, sha256)
+                db.update_file_hash(file_path, file_hash)
 
-                inc = {"path": file_path, "previous_sha256": sha256_in_db, "new_sha256": sha256,
+                inc = {"path": file_path, "previous_hash": file_hash_in_db, "new_hash": file_hash,
                        "previous_size": file_size_in_db, "new_size": file_size,
-                       "detection_time": extensions.get_current_datetime()}
+                       "detection_time": functions.get_datetime()}
                 files_changed_list.append(inc)
 
-                logger.log_warning(
-                    "'{}' has been changed. Old hash: '{}' New hash: '{}'"
-                    " Old size: '{}' New size: '{}'".format(file_path, sha256_in_db,
-                                                                 sha256, file_size_in_db, file_size),
-                    os.path.basename(__file__))
+                print("[*] Detected a file CHANGE in '{}' '{}' => '{}'".format(file_path, file_hash_in_db, file_hash))
 
-            logger.log_debug("start_routine_scan(): Processed '{}' ".format(file_path), os.path.basename(__file__))
-        except:
-            logger.log_debug(
+                logger.log_warning(
+                    "Detected a file CHANGE in '{}' '{}' => '{}' '{}' => '{}'".format(file_path, file_hash_in_db, file_hash, file_size_in_db, file_size),module_name)
+
+            logger.log_debug("start_routine_scan(): Processed '{}' ".format(file_path), module_name)
+        except Exception as e:
+            logger.log_error(
                 "start_routine_scan(): Unable to process file '{}' An error has occurred. {}".
-                    format(file_path, sys.exc_info()[0]),
-                os.path.basename(__file__))
+                    format(file_path, e), module_name)
             continue
 
     try:
         deleted_list = get_file_path_list_in_db_not_exists_on_disk()
         for f_path in deleted_list:
-            inc = {"path": f_path, "size":  db.get_file_size(f_path), "sha256": db.get_file_hash(f_path),
-                   "detection_time": extensions.get_current_datetime()}
+            logger.log_warning("Detected a file DELETION. '{}'".format(f_path), module_name)
+            print("[*] Detected a file DELETION. '{}'".format(f_path))
+
+            inc = {"path": f_path, "size":  db.get_file_size(f_path), "hash": db.get_file_hash(f_path),
+                   "detection_time": functions.get_datetime()}
             deleted_files_path_list.append(inc)
     except:
         pass
@@ -522,101 +533,93 @@ def start_routine_scan(path_list):
     return files_changed_list, new_files_path_list, deleted_files_path_list, renamed_files_path_list
 
 
-def start_initial_scan():
+def silent_scan():
     global FILE_COUNTER
 
-    logger.log_debug("initial_scan(): Starting Initial Scan.", os.path.basename(__file__))
+    logger.log_debug("Started a silent Scan", module_name)
+    print("[+] Started a silent Scan")
 
-    # Init the file counter (to count how many files processed)
-    logger.log_debug("initial_scan(): Resetting file counters", os.path.basename(__file__))
     reset_processed_files_counter()
 
     # Get file path list
-    logger.log_debug("initial_scan(): Reading watch list file", os.path.basename(__file__))
-    path_list = read_file_watch_list()
+    watch_list_file_lines = read_file_watch_list()
 
-    logger.log_debug("initial_scan(): Filtering watch list paths.", os.path.basename(__file__))
-    filtered_path_list = process_watch_list(path_list)
+    # Get file path list
+    filtered_path_list = process_watch_list(watch_list_file_lines)
+    #print(filtered_path_list)
 
     # Exclude DB file
     db_path = db.get_db_path()
     if db_path in filtered_path_list:
         filtered_path_list.remove(db_path)
 
+
     # Loop through the file path list and calculate hash for each, create record in db
-    logger.log_debug("initial_scan(): Creating file records in the database", os.path.basename(__file__))
+    logger.log_debug("silent_scan(): Creating file records in the database", module_name)
     create_files_records(filtered_path_list)
 
-    # report to log file
-    logger.log_debug("initial_scan(): Initial scan complete. Files processed: {}".format(FILE_COUNTER),
-                     os.path.basename(__file__))
-    print("Initial scan complete. Number of files processed: {}".format(FILE_COUNTER))
+    # report & log
+    logger.log_debug("Silent scan complete. Number files processed: {}".format(FILE_COUNTER), module_name)
+    print("[+] Silent scan complete.")
+    print("[+] Count of new files processed: {}".format(FILE_COUNTER))
 
 
-def scan():
-
-    logger.log_debug("scan(): Starting a routine scan..", os.path.basename(__file__))
-
+def start_scan(is_silent_scan):
     db_cleanup()
 
-    # Reset the file(s) counters
-    logger.log_debug("scan(): Resetting file counters.", os.path.basename(__file__))
+    if is_silent_scan:
 
-    # Get file path list
-    logger.log_debug("scan(): Reading watch list file.", os.path.basename(__file__))
-    path_list = read_file_watch_list()
+        silent_scan()
+        return
 
-    logger.log_debug("scan(): Filtering watch list paths.", os.path.basename(__file__))
-    filtered_path_list = process_watch_list(path_list)
-
-    # check the files integrity
-    logger.log_debug("scan(): Starting routine scan.", os.path.basename(__file__))
-    check_result = start_routine_scan(filtered_path_list)
-    logger.log_debug("scan(): Routine scan complete.", os.path.basename(__file__))
+    scan_result = start_routine_scan()
 
     # Violation lists
-    files_changed_list = check_result[0]
-    new_files_detected_list = check_result[1]
-    deleted_files_list = check_result[2]
-    renamed_files_list = check_result[3]
+    files_changed_list = scan_result[0]
+    new_files_detected_list = scan_result[1]
+    deleted_files_list = scan_result[2]
+    renamed_files_list = scan_result[3]
+
+    new_email_queue = False
 
     # Queue in the DB for sending notification, notification will be sent on next cron schedule
-    if len(files_changed_list) > 0:
+    if len(files_changed_list) > 0 and EMAIL_NOTIFICATIONS_ENABLED:
         notifier.queue_email_message(notifier.TEMPLATE.FILE_CHANGED, notifier.ALERT_LEVEL.WARNING, files_changed_list)
+        new_email_queue = True
 
-    if len(new_files_detected_list) > 0:
+    if len(new_files_detected_list) > 0 and EMAIL_NOTIFICATIONS_ENABLED:
         notifier.queue_email_message(notifier.TEMPLATE.NEW_FILE_DETECTED, notifier.ALERT_LEVEL.INFO,
                                      new_files_detected_list)
+        new_email_queue = True
 
-    if len(deleted_files_list) > 0:
+    if len(deleted_files_list) > 0 and EMAIL_NOTIFICATIONS_ENABLED:
         notifier.queue_email_message(notifier.TEMPLATE.FILE_DELETED, notifier.ALERT_LEVEL.WARNING, deleted_files_list)
+        new_email_queue = True
 
-    if len(renamed_files_list) > 0:
+    if len(renamed_files_list) > 0 and EMAIL_NOTIFICATIONS_ENABLED:
         notifier.queue_email_message(notifier.TEMPLATE.FILE_RENAMED, notifier.ALERT_LEVEL.WARNING, renamed_files_list)
+        new_email_queue = True
 
     # report to log file
-    print("Routine scan is complete.\n"
-          "Files Change: {}\n"
-          "Files Deletion: {}\n"
-          "File Rename: {}\n"
-          "New Files Detected: {}\n"
-          "".format(len(files_changed_list), len(deleted_files_list), len(renamed_files_list),
-                    len(new_files_detected_list)))
+    print("[+] Routine scan is complete.")
+    print("[+] File Change Count: {}".format(len(files_changed_list)))
+    print("[+] File Deletion Count: {}".format(len(deleted_files_list)))
+    print("[+] File Rename Count: {}".format(len(renamed_files_list)))
+    print("[+] New File Count: {}".format(len(new_files_detected_list)))
 
     # Send notifications
-    if EMAIL_NOTIFICATIONS_ENABLED:
+    if EMAIL_NOTIFICATIONS_ENABLED and new_email_queue:
+        print('[+] Delivering report to {}'.format(TO))
         notifier.send_queued_messages()
+        print('[+] Report sent to {}'.format(TO))
+
 
 
 def export_file_records_to_csv(export_path):
     try:
-        logger.log_debug("export_file_records_to_csv(): Exporting 'file_records' table to '{}'...".format(export_path),
-                         os.path.basename(__file__))
+        logger.log_debug("Exporting 'file_records' table to '{}'".format(export_path), module_name)
         db.dump_file_records_to_csv(export_path)
-        logger.log_debug("export_file_records_to_csv(): Exported 'file_records' table to '{}'...".format(export_path),
-                         os.path.basename(__file__))
-    except:
-        logger.log_debug(
-            "export_file_records_to_csv(): An error has occured while exporting"
-            " 'file_records' table to 'file_records.csv'...",
-            os.path.basename(__file__))
+        logger.log_debug("Exported 'file_records' table to '{}'".format(export_path),module_name)
+    except Exception as e:
+        print('[-] ERROR: {}'.format(e))
+        logger.log_error("An error has occurred while exporting 'file_records' table to 'file_records.csv'. {}".format(e), module_name)

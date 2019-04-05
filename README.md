@@ -23,7 +23,7 @@ Example scenarios:
 
 # Installation
 1. Clone or download the project files.
-2. Place the project files in a writble directory, and outside the directories being watched. 
+2. Place the project files in a writble directory, and outside the directories being watched.
 3. Add the file(s) and directorie(s) path that should be watched in the file 'watch_list.txt' separated by a new line.
 
 Example on 'watch_list.txt' entries
@@ -46,7 +46,7 @@ Directory Format:
 ```
 
 
-3. To enable email alerts, modify the Email sending (SMTP) sttings in 'watchtower_settings.py' for 
+3. To enable email alerts, modify the Email sending (SMTP) sttings in 'watchtower_settings.py' for
 4. Run the script 'watchtower.py' with ```silent-scan``` option.
 
 ```
@@ -96,4 +96,3 @@ This project is licensed under the GNU General Public License v2.0 - see the [LI
 Moath Maharmeh - [@iomoaaz](https://twitter.com/iomoaaz) - moath@vegalayer.com
 
 https://github.com/iomoath/yara-scanner
-

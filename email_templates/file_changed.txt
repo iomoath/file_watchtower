@@ -1,2 +1,2 @@
-File WatchTower has detected a change on a file being watched. The attached document contains more details about this incident.\n
+File WatchTower has detected a change on a file being watched. The attached document contains more details about this incident.
 Number of Files changed: %VIOLATION_COUNT%

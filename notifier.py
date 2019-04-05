@@ -1,8 +1,12 @@
-#!/usr/local/bin/python3
-
 __author__ = "Moath Maharmeh"
+__license__ = "GNU General Public License v2.0"
+__version__ = "1.1"
+__email__ = "moath@vegalayer.com"
+__created__ = "13/Dec/2018"
+__modified__ = "5/Apr/2019"
+__project_page__ = "https://github.com/iomoath/file_watchtower"
 
-import extensions
+import functions
 import logger
 import sys
 import os
@@ -18,6 +22,8 @@ Severity Definition:
 # LOW: Not used in WatchTower, for future use
 # INFO: Not used in WatchTower, for future use
 """
+
+module_name = os.path.basename(__file__)
 
 ALERT_LEVEL = Enum(["CRITICAL", "WARNING", "ERROR", "INFO"])
 
@@ -49,22 +55,22 @@ def read_template_file(template_file):
     template_path = ALERT_TEMPLATE_FILE[template_file]
 
     if not os.path.exists(template_path):
-        log_msg = extensions.get_file_does_not_exist_msg(template_path)
-        logger.log_error(log_msg, os.path.basename(__file__))
+        log_msg = functions.get_file_does_not_exist_msg(template_path)
+        logger.log_error(log_msg, module_name)
         sys.exit(log_msg)
     try:
         file_stream = open(template_path, "r")
     except IOError as e:
-        log_msg = extensions.get_file_read_error_msg(template_path, e.errno, e.strerror)
-        logger.log_error(log_msg, os.path.basename(__file__))
+        log_msg = functions.get_file_read_error_msg(template_path, e.errno, e.strerror)
+        logger.log_error(log_msg, module_name)
         sys.exit(log_msg)
     else:
         with file_stream:
             file_content = file_stream.read()
 
             if not file_content:
-                log_msg = extensions.get_file_empty_error_msg(template_path)
-                logger.log_error(log_msg, os.path.basename(__file__))
+                log_msg = functions.get_file_empty_error_msg(template_path)
+                logger.log_error(log_msg, module_name)
                 sys.exit(log_msg)
     return file_content.strip()
 
@@ -92,13 +98,13 @@ def construct_msg_file_changed(file_info_list, alert_lvl):
         attachment_str += "File Path: '{}'\n".format(file_info["path"])
         attachment_str += "Old Size: {}\n".format(file_info["previous_size"])
         attachment_str += "New Size: {}\n".format(file_info["new_size"])
-        attachment_str += "Old Hash: {}\n".format(file_info["previous_sha256"])
-        attachment_str += "New Hash: {}\n".format(file_info["new_sha256"])
+        attachment_str += "Old Hash: {}\n".format(file_info["previous_hash"])
+        attachment_str += "New Hash: {}\n".format(file_info["new_hash"])
         attachment_str += "Detected: {}\n".format(file_info["detection_time"])
         attachment_str += "-" * 50
         attachment_str += '\n'
 
-    attachment_str = extensions.encode_base64(attachment_str)
+    attachment_str = functions.encode_base64(attachment_str)
     email_msg_dict = {"subject": message_subject, "body": message_body, "attachment": attachment_str}
     return email_msg_dict
 
@@ -125,12 +131,12 @@ def construct_msg_new_file_detected(file_info_list, alert_lvl):
     for file_info in file_info_list:
         attachment_str += "File Path: '{}'\n".format(file_info["path"])
         attachment_str += "Size: {}\n".format(file_info["size"])
-        attachment_str += "Hash: {}\n".format(file_info["sha256"])
+        attachment_str += "Hash: {}\n".format(file_info["hash"])
         attachment_str += "Detected: {}\n".format(file_info["detection_time"])
         attachment_str += "-" * 50
         attachment_str += '\n'
 
-    attachment_str = extensions.encode_base64(attachment_str)
+    attachment_str = functions.encode_base64(attachment_str)
     email_msg_dict = {"subject": message_subject, "body": message_body, "attachment": attachment_str}
     return email_msg_dict
 
@@ -157,12 +163,12 @@ def construct_msg_file_deleted(file_info_list, alert_lvl):
     for file_info in file_info_list:
         attachment_str += "File Path: '{}'\n".format(file_info["path"])
         attachment_str += "Size: {}\n".format(file_info["size"])
-        attachment_str += "Hash: {}\n".format(file_info["sha256"])
+        attachment_str += "Hash: {}\n".format(file_info["hash"])
         attachment_str += "Detected: {}\n".format(file_info["detection_time"])
         attachment_str += "-" * 50
         attachment_str += '\n'
 
-    attachment_str = extensions.encode_base64(attachment_str)
+    attachment_str = functions.encode_base64(attachment_str)
     email_msg_dict = {"subject": message_subject, "body": message_body, "attachment": attachment_str}
     return email_msg_dict
 
@@ -189,12 +195,12 @@ def construct_msg_file_renamed(file_info_list, alert_lvl):
     for file_info in file_info_list:
         attachment_str += "Old Path: '{}'\n".format(file_info["old_path"])
         attachment_str += "New Path: '{}'\n".format(file_info["new_path"])
-        attachment_str += "Hash: {}\n".format(file_info["sha256"])
+        attachment_str += "Hash: {}\n".format(file_info["hash"])
         attachment_str += "Detected: {}\n".format(file_info["detection_time"])
         attachment_str += "-" * 50
         attachment_str += '\n'
 
-    attachment_str = extensions.encode_base64(attachment_str)
+    attachment_str = functions.encode_base64(attachment_str)
     email_msg_dict = {"subject": message_subject, "body": message_body, "attachment": attachment_str}
     return email_msg_dict
 
@@ -250,14 +256,14 @@ def construct_msg_watchlist_file_empty(alert_lvl, detection_time):
 
 def construct_email_for_sending(msg_info_dict):
     try:
-        attachments = extensions.decode_base64(msg_info_dict["attachments"])
+        attachments = functions.decode_base64(msg_info_dict["attachments"])
     except:
         attachments = None
 
     dict_msg = {
         "username": watchtower_settings.SMTP_USERNAME,
         "password": watchtower_settings.SMTP_PASSWORD,
-        "server": watchtower_settings.SMTP_HOST,
+        "host": watchtower_settings.SMTP_HOST,
         "port": watchtower_settings.SMTP_PORT,
         "ssl": watchtower_settings.SMTP_SSL,
         "from": "{} <{}>".format(watchtower_settings.FROM_NAME, watchtower_settings.SMTP_USERNAME),
@@ -281,7 +287,7 @@ def queue_email_message(msg_template, alert_level, file_info_list):
     """
     try:
         logger.log_debug("queue_message(): Constructing Email message" "Template: '{}'".format(TEMPLATE.FILE_CHANGED),
-                         os.path.basename(__file__))
+                         module_name)
 
         if msg_template == TEMPLATE.FILE_CHANGED:
             msg_dict = construct_msg_file_changed(file_info_list, alert_level)
@@ -289,7 +295,7 @@ def queue_email_message(msg_template, alert_level, file_info_list):
             if row_id > 0:
                 logger.log_debug("queue_message(): Email message has been queued for sending. "
                                  "Template: '{}'".format(TEMPLATE.FILE_CHANGED),
-                                 os.path.basename(__file__))
+                                 module_name)
 
         elif msg_template == TEMPLATE.NEW_FILE_DETECTED:
             msg_dict = construct_msg_new_file_detected(file_info_list, alert_level)
@@ -298,7 +304,7 @@ def queue_email_message(msg_template, alert_level, file_info_list):
             if row_id > 0:
                 logger.log_debug("queue_message(): Email message has been queued for sending. "
                                  "Template: '{}'".format(TEMPLATE.NEW_FILE_DETECTED),
-                                 os.path.basename(__file__))
+                                 module_name)
 
         elif msg_template == TEMPLATE.FILE_DELETED:
             msg_dict = construct_msg_file_deleted(file_info_list, alert_level)
@@ -307,7 +313,7 @@ def queue_email_message(msg_template, alert_level, file_info_list):
             if row_id > 0:
                 logger.log_debug("queue_message(): Email message has been queued for sending. "
                                  "Template: '{}'".format(TEMPLATE.FILE_DELETED),
-                                 os.path.basename(__file__))
+                                 module_name)
         elif msg_template == TEMPLATE.FILE_RENAMED:
             msg_dict = construct_msg_file_renamed(file_info_list, alert_level)
 
@@ -315,10 +321,10 @@ def queue_email_message(msg_template, alert_level, file_info_list):
             if row_id > 0:
                 logger.log_debug("queue_message(): Email message has been queued for sending. "
                                  "Template: '{}'".format(TEMPLATE.FILE_RENAMED),
-                                 os.path.basename(__file__))
-    except:
-        logger.log_debug("queue_message(): Failed to queue email message in the database. More info: {}"
-                         .format(sys.exc_info()), os.path.basename(__file__))
+                                 module_name)
+    except Exception as e:
+        logger.log_error("queue_message(): Failed to queue email message in the database. More info: {}"
+                         .format(e), module_name)
 
 
 def queue_email_message_text(msg_template, alert_level, msg_text):
@@ -334,37 +340,37 @@ def queue_email_message_text(msg_template, alert_level, msg_text):
         logger.log_debug(
             "queue_message(): Constructing Email message" "Template: '{}'".format(
                 TEMPLATE.WATCHLIST_FILE_READ_ERROR),
-            os.path.basename(__file__))
+            module_name)
 
         if msg_template == TEMPLATE.WATCHLIST_FILE_NOT_FOUND:
-            msg_dict = construct_msg_watchlist_not_found(alert_level, extensions.get_current_datetime())
+            msg_dict = construct_msg_watchlist_not_found(alert_level, functions.get_datetime())
 
             row_id = db.insert_email_msg(msg_dict)
             if row_id > 0:
                 logger.log_debug("queue_message(): Email message has been queued for sending. "
                                  "Template: '{}'".format(TEMPLATE.WATCHLIST_FILE_NOT_FOUND),
-                                 os.path.basename(__file__))
+                                 module_name)
 
         elif msg_template == TEMPLATE.WATCHLIST_FILE_EMPTY:
-            msg_dict = construct_msg_watchlist_file_empty(alert_level, extensions.get_current_datetime())
+            msg_dict = construct_msg_watchlist_file_empty(alert_level, functions.get_datetime())
 
             row_id = db.insert_email_msg(msg_dict)
             if row_id > 0:
                 logger.log_debug("queue_message(): Email message has been queued for sending. "
                                  "Template: '{}'".format(TEMPLATE.WATCHLIST_FILE_NOT_FOUND),
-                                 os.path.basename(__file__))
+                                 module_name)
 
         elif msg_template == TEMPLATE.WATCHLIST_FILE_READ_ERROR:
-            msg_dict = construct_msg_watchlist_read_error(alert_level, extensions.get_current_datetime())
+            msg_dict = construct_msg_watchlist_read_error(alert_level, functions.get_datetime())
 
             row_id = db.insert_email_msg(msg_dict)
             if row_id > 0:
                 logger.log_debug("queue_message(): Email message has been queued for sending. "
                                  "Template: '{}'".format(TEMPLATE.WATCHLIST_FILE_READ_ERROR),
-                                 os.path.basename(__file__))
-    except:
-        logger.log_debug("queue_message(): Failed to queue email message in the database. More info: {}"
-                         .format(sys.exc_info()), os.path.basename(__file__))
+                                 module_name)
+    except Exception as e:
+        logger.log_error("queue_message(): Failed to queue email message in the database. More info: {}"
+                         .format(e), module_name)
 
     # Try Send the message
     try:
@@ -376,15 +382,15 @@ def queue_email_message_text(msg_template, alert_level, msg_text):
 def send_queued_messages():
     msg_list = db.get_unsent_messages()
 
-    logger.log_debug("send_queued_messages(): Sending email messages..", os.path.basename(__file__))
+    logger.log_debug("send_queued_messages(): Sending email messages..", module_name)
 
     for msg_dict in msg_list:
-        logger.log_debug("send_queued_messages(): Sending message id '{}'".format(msg_dict["id"]), os.path.basename(__file__))
+        logger.log_debug("send_queued_messages(): Sending message id '{}'".format(msg_dict["id"]), module_name)
         msg_dict_full = construct_email_for_sending(msg_dict)
         if email_sender.send_message(msg_dict_full):
             db.delete_msg(msg_dict["id"])
-            logger.log_debug("send_queued_messages(): Sent message id '{}'".format(msg_dict["id"]), os.path.basename(__file__))
+            logger.log_debug("send_queued_messages(): Sent message id '{}'".format(msg_dict["id"]), module_name)
 
     logger.log_debug("send_queued_messages(): Sending email messages complete.",
-                     os.path.basename(__file__))
+                     module_name)
 
