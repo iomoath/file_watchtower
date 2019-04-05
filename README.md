@@ -46,7 +46,7 @@ Directory Format:
 ```
 
 
-3. To enable email alerts, modify the Email sending (SMTP) sttings in 'watchtower_settings.py' for
+3. To enable email alerts, modify the Email sending (SMTP) sttings in 'watchtower_settings.py'
 4. Run the script 'watchtower.py' with ```silent-scan``` option.
 
 ```
