@@ -12,7 +12,7 @@ log_enabled = True
 
 
 logging.basicConfig(filename='log.log',
-                    level=logging.INFO,
+                    level=logging.CRITICAL,
                     format="%(asctime)s  %(levelname)-10s - %(message)s",
                     datefmt="%Y-%m-%d %H:%M:%S")
 
