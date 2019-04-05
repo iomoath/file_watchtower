@@ -1,4 +1,4 @@
-# File WatchTower
+# File Watchtower
 
 File WatchTower project is a lightweight and File Integrity Montiroing Tool. File WatchTower is able to detect, log and report a change in a file content, file deletion, file renaming and file creation. Whenever an violation is occurs, File WatchTower will notify you by Email and also will produce logs about the incident.
 
