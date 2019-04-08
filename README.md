@@ -42,7 +42,7 @@ Directory Format:
 
 /var/www/html/wordpress/wp-content/themes, true, .css, 1048576
 
-/var/www/html/wordpress/wp-content/themes, yes, .css
+/var/www/html/wordpress/wp-content/themes, true, .css
 ```
 
 
