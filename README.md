@@ -54,7 +54,7 @@ python3 watchtower.py --silent-scan
 ```
 The silent scan option will scan the watch list file (watch_list.txt) and create a records for the files. no alarms and notifications will be made. Use this option whenever you add new files into the directories being watched.
 
-5. Create a cron job for routine scanning. The following cron will run on 12:00 AM every day. Adjust as your requirements.
+5. Create a cron job for routine scanning. The following cron will run at 12:00 AM every day. Adjust as your requirements.
 
 ```
 $ crontab -e
