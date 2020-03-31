@@ -51,8 +51,7 @@ def send_message(dict_msg_attr):
     outer.preamble = 'You will not see this in a MIME-aware mail reader.\n'
 
     # List of attachments
-    attachments = dict_msg_attr["attachments"]
-    if attachments is not None:
+    if 'attachments' in dict_msg_attr and dict_msg_attr["attachments"] is not None:
         # Add the attachments to the message
         try:
             msg = MIMEBase('application', "octet-stream")
