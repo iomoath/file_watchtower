@@ -53,7 +53,7 @@ def generate_argparser():
     """
     ap = argparse.ArgumentParser(ascii_logo)
 
-    ap.add_argument("-r", "--routine_scan", action='store_true',
+    ap.add_argument("-r", "--routine-scan", action='store_true',
                     help="This is the routine scan and usually executed by OS cron manager."
                          "The routine scan type, Will scan and report the changes that occurs within the directories or files being watched")
 
