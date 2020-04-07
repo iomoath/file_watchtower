@@ -21,7 +21,7 @@ Example scenarios:
 ### Prerequisites
 * Python 3
 
-# Installation
+# Installation & Usage
 1. Clone or download the project files.
 2. Place the project files in a writble directory, and outside the directories being watched.
 3. Add the file(s) and directories path that should be watched in the file 'watch_list.txt' separated by a new line.
