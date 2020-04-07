@@ -24,7 +24,7 @@ Example scenarios:
 # Installation
 1. Clone or download the project files.
 2. Place the project files in a writble directory, and outside the directories being watched.
-3. Add the file(s) and directorie(s) path that should be watched in the file 'watch_list.txt' separated by a new line.
+3. Add the file(s) and directories path that should be watched in the file 'watch_list.txt' separated by a new line.
 
 Example on 'watch_list.txt' entries
 
@@ -54,32 +54,34 @@ python3 watchtower.py --silent-scan
 ```
 The silent scan option will scan the watch list file (watch_list.txt) and create a records for the files. no alarms and notifications will be made. Use this option whenever you add new files into the directories being watched.
 
-5. Create a cron job for routine scanning. The following cron will run at 12:00 AM every day. Adjust as your requirements.
+5. Create a cron job for routine scanning. The following cron will run every one minute. Adjust as your requirements.
 
 ```
 $ crontab -e
 # append the following line, adjust project path
 
-0 0 * * * python3 /opt/file_watchtower/watchtower.py --routine_scan
+* * * * * python3 /opt/file_watchtower/watchtower.py --routine_scan
+* * * * * python3 /opt/file_watchtower/watchtower.py --process-email-queue
 ```
 
 
 # Command Line Args
 
 ```
-  -h, --help          show this help message and exit
-  -r, --routine_scan  This is the routine scan and usually executed by OS cron
-                      manager. The routine scan type, Will scan and report the
-                      changes that occurs within the directories or files
-                      being watched
-  -s, --silent-scan   This type of scan will parse the watch list file
-                      (watch_list.txt) and create a records for the file(s).
-                      no alarms and notifications will be made. Use this
-                      option whenever you add new files into the directories
-                      being watched.
-  --export-db         Export the database file records to a CSV file.
-  --reset             Empty the file records database.
-  --version           show program's version number and exit
+  -h, --help            show this help message and exit
+  -r, --routine_scan    This is the routine scan and usually executed by OS
+                        cron manager.The routine scan type, Will scan and
+                        report the changes that occurs within the directories
+                        or files being watched
+  -s, --silent-scan     This type of scan will parse the watch list file
+                        (watch_list.txt) and create a records for the file(s).
+                        no alerts will be made. Use this option whenever you
+                        add new files into the directories being watched.
+  -e, --process-email-queue
+                        Send pending email alerts.
+  --export-db           Export the database file records to a CSV file.
+  --reset               Empty the file records database.
+  --version             show program's version number and exit
 ```
 
 # Screenshots
