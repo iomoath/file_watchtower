@@ -45,9 +45,9 @@ def build_watch_option(line):
 
         # Try parse path
         try:
-            path = parts[0].strip()
+            path = parts[0].strip().rstrip('/')
             directory_info["watch_path"] = path
-            directory_info["exists_on_disk"] = path
+            directory_info["exists_on_disk"] = True
             if os.path.isfile(path):
                 directory_info['path_type'] = 'file'
             elif os.path.isdir(path):
@@ -92,9 +92,6 @@ def build_watch_option(line):
 
         if "max_file_size" not in directory_info:
             directory_info["max_file_size"] = -1
-
-       # if "exists_on_disk" not in directory_info:
-       #     directory_info["exists_on_disk"] = True
 
         return directory_info
     except:
@@ -389,6 +386,7 @@ def get_file_path_list_in_db_not_exists_on_disk():
         # Check if file exists on disk
         is_missing_on_disk = False
         db_exists_on_disk_value = db.get_exists_on_disk_value(file_path)
+
         if not os.path.exists(file_path):
             # Check if file is exists in watch_list file
             if is_watch_options_list_contains_file_path(watch_options_list, file_path):
@@ -401,6 +399,7 @@ def get_file_path_list_in_db_not_exists_on_disk():
 
                     elif os.path.dirname(os.path.abspath(file_path)) == options["watch_path"]:
                         is_missing_on_disk = True
+
 
         if is_missing_on_disk and db_exists_on_disk_value == "True":
             deleted_file_list.append(file_path)
