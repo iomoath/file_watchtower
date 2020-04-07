@@ -1,10 +1,10 @@
 __author__ = "Moath Maharmeh"
 __license__ = "GNU General Public License v2.0"
-__version__ = "1.1"
 __email__ = "moath@vegalayer.com"
 __created__ = "13/Dec/2018"
-__modified__ = "5/Apr/2019"
+__modified__ = "5/Apr/2020"
 __project_page__ = "https://github.com/iomoath/file_watchtower"
+
 
 import os
 import glob
@@ -12,7 +12,6 @@ from pathlib import Path
 from datetime import datetime
 import hashlib
 import base64
-from glob import glob
 import pathlib
 
 DATETIME_FORMAT = "%Y-%m-%d %H:%M:%S"
