@@ -1,9 +1,9 @@
 __author__ = "Moath Maharmeh"
 __license__ = "GNU General Public License v2.0"
-__version__ = "1.1"
+__version__ = "1.2"
 __email__ = "moath@vegalayer.com"
 __created__ = "13/Dec/2018"
-__modified__ = "5/Apr/2019"
+__modified__ = "7/Apr/2020"
 __project_page__ = "https://github.com/iomoath/file_watchtower"
 
 
@@ -17,9 +17,8 @@ import sys
 
 import db
 import logger
-from watchtower_settings import EMAIL_NOTIFICATIONS_ENABLED
-from watchtower_settings import WATCH_LIST_FILE_PATH
-from watchtower_settings import TO
+from settings import EMAIL_ALERTS_ENABLED
+from settings import WATCH_LIST_FILE_PATH
 import notifier
 
 import functions
@@ -48,15 +47,16 @@ def build_watch_option(line):
         try:
             path = parts[0].strip()
             directory_info["watch_path"] = path
-            directory_info["exists_on_disk"] = path
 
-            if directory_info["exists_on_disk"]:
-                if os.path.isfile(path):
-                    directory_info['path_type'] = 'file'
-                elif os.path.isdir(path):
-                    directory_info['path_type'] = 'dir'
+            if os.path.isfile(path):
+                directory_info['path_type'] = 'file'
+            elif os.path.isdir(path):
+                directory_info['path_type'] = 'dir'
+
+
         except:
-            return None # at least, path is required
+            return None # at least, a path is required
+
 
         # Try parse is_recursive option
         try:
@@ -67,19 +67,34 @@ def build_watch_option(line):
             else:
                 directory_info["is_recursive"] = False
         except:
-            return directory_info # no need to continue, as we reached the end of parts[]
+            pass
+
 
         # Try parse excluded extensions
         try:
             directory_info['excluded_extensions'] = parts[2].strip().split('|')
         except:
-            directory_info['excluded_extensions'] = []
+            pass
+
 
         # Try parse max file length option
         try:
             directory_info['max_file_size'] = int(parts[3])
         except:
-            directory_info['max_file_size'] = -1
+            pass
+
+
+        if "is_recursive" not in directory_info:
+            directory_info["is_recursive"] = False
+
+        if "excluded_extensions" not in directory_info:
+            directory_info["excluded_extensions"] = []
+
+        if "max_file_size" not in directory_info:
+            directory_info["max_file_size"] = -1
+
+        if "exists_on_disk" not in directory_info:
+            directory_info["exists_on_disk"] = True
 
         return directory_info
     except:
@@ -91,7 +106,6 @@ def build_watch_option_list(watch_list_file_lines):
 
     for line in watch_list_file_lines:
         watch_options = build_watch_option(line)
-
         if watch_options is not None:
             watch_options_list.append(watch_options)
     return watch_options_list
@@ -137,7 +151,6 @@ def filter_file(file_path, disallowed_extensions, max_size):
 
 
 def filter_file_path_set(file_path_set, disallowed_extensions, max_size):
-
     if disallowed_extensions is None and max_size <= 0: # No valid filters
         return file_path_set
 
@@ -199,7 +212,7 @@ def read_file_watch_list():
         log_msg = functions.get_file_does_not_exist_msg(WATCH_LIST_FILE_PATH)
         logger.log_critical(log_msg, os.path.basename(__file__))
 
-        if EMAIL_NOTIFICATIONS_ENABLED:
+        if EMAIL_ALERTS_ENABLED:
             notifier.queue_email_message_text(notifier.TEMPLATE.WATCHLIST_FILE_NOT_FOUND, notifier.ALERT_LEVEL.CRITICAL, None)
         sys.exit("'{}' configuration file does not exist.".format(WATCH_LIST_FILE_PATH))
 
@@ -208,7 +221,7 @@ def read_file_watch_list():
     except IOError as e:
         log_msg = functions.get_file_read_error_msg(WATCH_LIST_FILE_PATH, e.errno, e.strerror)
         logger.log_critical(log_msg, module_name)
-        if EMAIL_NOTIFICATIONS_ENABLED:
+        if EMAIL_ALERTS_ENABLED:
             notifier.queue_email_message_text(notifier.TEMPLATE.WATCHLIST_FILE_READ_ERROR, notifier.ALERT_LEVEL.CRITICAL, None)
         sys.exit("[-] Unable to read watch list file '{}'".format(WATCH_LIST_FILE_PATH))
     else:
@@ -219,7 +232,7 @@ def read_file_watch_list():
                 log_msg = functions.get_file_empty_error_msg(WATCH_LIST_FILE_PATH)
                 logger.log_critical(log_msg, os.path.basename(__file__))
 
-                if EMAIL_NOTIFICATIONS_ENABLED:
+                if EMAIL_ALERTS_ENABLED:
                     notifier.queue_email_message_text(notifier.TEMPLATE.WATCHLIST_FILE_EMPTY,
                                                       notifier.ALERT_LEVEL.CRITICAL, None)
                 sys.exit(log_msg)
@@ -243,7 +256,7 @@ def db_cleanup():
 
     for line in path_list:
         try:
-            logger.log_debug("db_cleanup(): Processing '{}'".format(line), module_name)
+            logger.log_debug("db_cleanup(): Processing line '{}'".format(line), module_name)
 
             watch_options = build_watch_option(line)
             if watch_options is not None:
@@ -252,7 +265,7 @@ def db_cleanup():
                 elif watch_options["path_type"] == 'file':
                     file_path_list.append(watch_options['watch_path'])
 
-                logger.log_debug("db_cleanup(): Processed '{}'".format(line), module_name)
+                logger.log_debug("db_cleanup(): Processed line '{}'".format(line), module_name)
 
         except Exception as e:
             logger.log_error("db_cleanup(): An error has occurred while processing the line '{}' Error: {}".format(line, e), module_name)
@@ -408,7 +421,7 @@ def start_routine_scan():
     """
     # Checks if the registered file(s) hash changed since last hash check.
     # Detects new files added in directories being watched and has no record in the DB (is genuinely added ?).
-    # Detects if a file(s) is deleted from disk.
+    # Detects if a file(s) is deleted from disk.f
     # Detects if a file(s) is renamed.
     :return: tuple (list of files that is changed since last check, list of files that has no record in th db,
     list of files that is deleted from disk and has a record in the DB)
@@ -459,9 +472,9 @@ def start_routine_scan():
                 has_a_db_record = False
 
             if has_a_db_record:
-                file_path_in_db = file_db_record[1]
-                file_hash_in_db = file_db_record[2]
-                file_size_in_db = file_db_record[3]
+                file_path_in_db = file_db_record["file_path"]
+                file_hash_in_db = file_db_record["hash"]
+                file_size_in_db = file_db_record["file_size"]
 
 
             # Detect File rename
@@ -478,11 +491,14 @@ def start_routine_scan():
                     logger.log_warning("Detected a file RENAME. '{}' => '{}'".format(file_path_in_db, file_path),
                                      module_name)
 
+                    logger.log_file_rename(file_path_in_db, file_path, file_hash)
+
                     continue
 
 
             # Check if it's a new file
-            if not has_a_db_record:
+            p = db.get_file_hash(file_path)
+            if p is None:
                 file_record_dict = {"path": file_path, "hash": file_hash, "size": file_size,
                                     "detection_time": functions.get_datetime()}
                 new_files_path_list.append(file_record_dict)
@@ -493,6 +509,7 @@ def start_routine_scan():
                 logger.log_info("New file detected '{}' '{}' '{}'".format(file_path, file_hash, file_size),
                                 module_name)
                 logger.log_debug("start_routine_scan(): Processed '{}' ".format(file_path), module_name)
+                logger.log_file_creation(file_path, file_size, file_hash)
                 continue
 
             # Detect file change
@@ -511,6 +528,8 @@ def start_routine_scan():
                 logger.log_warning(
                     "Detected a file CHANGE in '{}' '{}' => '{}' '{}' => '{}'".format(file_path, file_hash_in_db, file_hash, file_size_in_db, file_size),module_name)
 
+                logger.log_file_change(file_path, file_hash_in_db, file_size_in_db, file_size, file_hash)
+
             logger.log_debug("start_routine_scan(): Processed '{}' ".format(file_path), module_name)
         except Exception as e:
             logger.log_error(
@@ -521,11 +540,16 @@ def start_routine_scan():
     try:
         deleted_list = get_file_path_list_in_db_not_exists_on_disk()
         for f_path in deleted_list:
+
+            inc = {"path": f_path, "size": db.get_file_size(f_path), "hash": db.get_file_hash(f_path),
+                   "detection_time": functions.get_datetime()}
+
             logger.log_warning("Detected a file DELETION. '{}'".format(f_path), module_name)
             print("[*] Detected a file DELETION. '{}'".format(f_path))
 
-            inc = {"path": f_path, "size":  db.get_file_size(f_path), "hash": db.get_file_hash(f_path),
-                   "detection_time": functions.get_datetime()}
+
+            logger.log_file_deletion(inc["path"], inc["size"], inc["hash"])
+
             deleted_files_path_list.append(inc)
     except:
         pass
@@ -546,7 +570,6 @@ def silent_scan():
 
     # Get file path list
     filtered_path_list = process_watch_list(watch_list_file_lines)
-    #print(filtered_path_list)
 
     # Exclude DB file
     db_path = db.get_db_path()
@@ -580,38 +603,27 @@ def start_scan(is_silent_scan):
     deleted_files_list = scan_result[2]
     renamed_files_list = scan_result[3]
 
-    new_email_queue = False
 
     # Queue in the DB for sending notification, notification will be sent on next cron schedule
-    if len(files_changed_list) > 0 and EMAIL_NOTIFICATIONS_ENABLED:
+    if len(files_changed_list) > 0 and EMAIL_ALERTS_ENABLED:
         notifier.queue_email_message(notifier.TEMPLATE.FILE_CHANGED, notifier.ALERT_LEVEL.WARNING, files_changed_list)
-        new_email_queue = True
 
-    if len(new_files_detected_list) > 0 and EMAIL_NOTIFICATIONS_ENABLED:
+    if len(new_files_detected_list) > 0 and EMAIL_ALERTS_ENABLED:
         notifier.queue_email_message(notifier.TEMPLATE.NEW_FILE_DETECTED, notifier.ALERT_LEVEL.INFO,
                                      new_files_detected_list)
-        new_email_queue = True
 
-    if len(deleted_files_list) > 0 and EMAIL_NOTIFICATIONS_ENABLED:
+    if len(deleted_files_list) > 0 and EMAIL_ALERTS_ENABLED:
         notifier.queue_email_message(notifier.TEMPLATE.FILE_DELETED, notifier.ALERT_LEVEL.WARNING, deleted_files_list)
-        new_email_queue = True
 
-    if len(renamed_files_list) > 0 and EMAIL_NOTIFICATIONS_ENABLED:
+    if len(renamed_files_list) > 0 and EMAIL_ALERTS_ENABLED:
         notifier.queue_email_message(notifier.TEMPLATE.FILE_RENAMED, notifier.ALERT_LEVEL.WARNING, renamed_files_list)
-        new_email_queue = True
 
     # report to log file
     print("[+] Routine scan is complete.")
-    print("[+] File Change Count: {}".format(len(files_changed_list)))
-    print("[+] File Deletion Count: {}".format(len(deleted_files_list)))
-    print("[+] File Rename Count: {}".format(len(renamed_files_list)))
-    print("[+] New File Count: {}".format(len(new_files_detected_list)))
-
-    # Send notifications
-    if EMAIL_NOTIFICATIONS_ENABLED and new_email_queue:
-        print('[+] Delivering report to {}'.format(TO))
-        notifier.send_queued_messages()
-        print('[+] Report sent to {}'.format(TO))
+    print("[+] File Change: {}".format(len(files_changed_list)))
+    print("[+] File Deletion: {}".format(len(deleted_files_list)))
+    print("[+] File Rename: {}".format(len(renamed_files_list)))
+    print("[+] File Creation: {}".format(len(new_files_detected_list)))
 
 
 
