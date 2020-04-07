@@ -1,10 +1,10 @@
 __author__ = "Moath Maharmeh"
 __license__ = "GNU General Public License v2.0"
-__version__ = "1.1"
 __email__ = "moath@vegalayer.com"
 __created__ = "13/Dec/2018"
-__modified__ = "5/Apr/2019"
+__modified__ = "7/Apr/2020"
 __project_page__ = "https://github.com/iomoath/file_watchtower"
+
 
 import functions
 import logger
@@ -12,7 +12,7 @@ import sys
 import os
 import db
 import email_sender
-import watchtower_settings
+import settings
 from Enum import *
 
 """ 
@@ -100,7 +100,7 @@ def construct_msg_file_changed(file_info_list, alert_lvl):
         attachment_str += "New Size: {}\n".format(file_info["new_size"])
         attachment_str += "Old Hash: {}\n".format(file_info["previous_hash"])
         attachment_str += "New Hash: {}\n".format(file_info["new_hash"])
-        attachment_str += "Detected: {}\n".format(file_info["detection_time"])
+        attachment_str += "Event time: {}\n".format(file_info["detection_time"])
         attachment_str += "-" * 50
         attachment_str += '\n'
 
@@ -132,7 +132,7 @@ def construct_msg_new_file_detected(file_info_list, alert_lvl):
         attachment_str += "File Path: '{}'\n".format(file_info["path"])
         attachment_str += "Size: {}\n".format(file_info["size"])
         attachment_str += "Hash: {}\n".format(file_info["hash"])
-        attachment_str += "Detected: {}\n".format(file_info["detection_time"])
+        attachment_str += "Event time: {}\n".format(file_info["detection_time"])
         attachment_str += "-" * 50
         attachment_str += '\n'
 
@@ -164,7 +164,7 @@ def construct_msg_file_deleted(file_info_list, alert_lvl):
         attachment_str += "File Path: '{}'\n".format(file_info["path"])
         attachment_str += "Size: {}\n".format(file_info["size"])
         attachment_str += "Hash: {}\n".format(file_info["hash"])
-        attachment_str += "Detected: {}\n".format(file_info["detection_time"])
+        attachment_str += "Event time: {}\n".format(file_info["detection_time"])
         attachment_str += "-" * 50
         attachment_str += '\n'
 
@@ -196,7 +196,7 @@ def construct_msg_file_renamed(file_info_list, alert_lvl):
         attachment_str += "Old Path: '{}'\n".format(file_info["old_path"])
         attachment_str += "New Path: '{}'\n".format(file_info["new_path"])
         attachment_str += "Hash: {}\n".format(file_info["hash"])
-        attachment_str += "Detected: {}\n".format(file_info["detection_time"])
+        attachment_str += "Event time: {}\n".format(file_info["detection_time"])
         attachment_str += "-" * 50
         attachment_str += '\n'
 
@@ -212,7 +212,7 @@ def construct_msg_watchlist_not_found(alert_lvl, detection_time):
 
     # Message body
     message_body = read_template_file(TEMPLATE.WATCHLIST_FILE_NOT_FOUND)
-    message_body = message_body.replace("%WATCH_LIST_FILE_PATH%", watchtower_settings.WATCH_LIST_FILE_PATH)
+    message_body = message_body.replace("%WATCH_LIST_FILE_PATH%", settings.WATCH_LIST_FILE_PATH)
     message_body = message_body.replace("%DETECTION_TIME%", detection_time)
     message_body += '\n'
     message_body += "-" * 50
@@ -228,7 +228,7 @@ def construct_msg_watchlist_read_error(alert_lvl, detection_time):
 
     # Message body
     message_body = read_template_file(TEMPLATE.WATCHLIST_FILE_READ_ERROR)
-    message_body = message_body.replace("%WATCH_LIST_FILE_PATH%", watchtower_settings.WATCH_LIST_FILE_PATH)
+    message_body = message_body.replace("%WATCH_LIST_FILE_PATH%", settings.WATCH_LIST_FILE_PATH)
     message_body = message_body.replace("%DETECTION_TIME%", detection_time)
     message_body += '\n'
     message_body += "-" * 50
@@ -244,7 +244,7 @@ def construct_msg_watchlist_file_empty(alert_lvl, detection_time):
 
     # Message body
     message_body = read_template_file(TEMPLATE.WATCHLIST_FILE_EMPTY)
-    message_body = message_body.replace("%WATCH_LIST_FILE_PATH%", watchtower_settings.WATCH_LIST_FILE_PATH)
+    message_body = message_body.replace("%WATCH_LIST_FILE_PATH%", settings.WATCH_LIST_FILE_PATH)
     message_body = message_body.replace("%DETECTION_TIME%", detection_time)
     message_body += '\n'
     message_body += "-" * 50
@@ -261,13 +261,13 @@ def construct_email_for_sending(msg_info_dict):
         attachments = None
 
     dict_msg = {
-        "username": watchtower_settings.SMTP_USERNAME,
-        "password": watchtower_settings.SMTP_PASSWORD,
-        "host": watchtower_settings.SMTP_HOST,
-        "port": watchtower_settings.SMTP_PORT,
-        "ssl": watchtower_settings.SMTP_SSL,
-        "from": "{} <{}>".format(watchtower_settings.FROM_NAME, watchtower_settings.SMTP_USERNAME),
-        "recipients": watchtower_settings.TO.split(','),
+        "username": settings.SMTP_USERNAME,
+        "password": settings.SMTP_PASSWORD,
+        "host": settings.SMTP_HOST,
+        "port": settings.SMTP_PORT,
+        "ssl": settings.SMTP_SSL,
+        "from": "{} <{}>".format(settings.FROM_NAME, settings.SMTP_USERNAME),
+        "recipients": settings.TO.split(','),
         "message": msg_info_dict["body"],
         "subject": msg_info_dict["subject"],
         "attachments": attachments}
