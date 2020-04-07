@@ -55,9 +55,9 @@ def log_info(message, module_name):
 
 def log_file_rename(old_file_path, new_file_path, file_hash):
     try:
-        # Log format: [%time%] "%old_file_path%" "%new_file_path%" "%file_hash%"
+        # Log format: [%time%] "%old_file_path%" "%new_file_path%" %file_hash%
 
-        log_row = "[{}] \"{}\" \"{}\" \"{}\"".format(functions.get_datetime(), old_file_path, new_file_path, file_hash)
+        log_row = "[{}] \"{}\" \"{}\" {}".format(functions.get_datetime(), old_file_path, new_file_path, file_hash)
 
         with open(FILE_RENAME_LOG_FILE_PATH, 'a+') as f:
             f.write(log_row)
@@ -68,9 +68,9 @@ def log_file_rename(old_file_path, new_file_path, file_hash):
 
 def log_file_creation(file_path, file_size, file_hash):
     try:
-        # Log format: [%time%] "%file_path%" "%file_size%" "%file_hash%"
+        # Log format: [%time%] "%file_path%" %file_size% %file_hash%
 
-        log_row = "[{}] \"{}\" \"{}\" \"{}\"".format(functions.get_datetime(), file_path, file_size, file_hash)
+        log_row = "[{}] \"{}\" {} {}".format(functions.get_datetime(), file_path, file_size, file_hash)
 
         with open(FILE_CREATION_LOG_FILE_PATH, 'a+') as f:
             f.write(log_row)
@@ -81,9 +81,9 @@ def log_file_creation(file_path, file_size, file_hash):
 
 def log_file_change(file_path, old_file_hash, old_file_size, new_file_size, new_file_hash):
     try:
-        # Log format: [%time%] "%file_path%" "%old_file_hash%" "%new_file_size%" "%new_file_hash%"
+        # Log format: [%time%] "%file_path%" %old_file_hash% %old_file_size% %new_file_size% %new_file_hash%
 
-        log_row = "[{}] \"{}\" \"{}\" \"{}\" \"{}\"".format(functions.get_datetime(), file_path, old_file_hash, new_file_size, new_file_hash)
+        log_row = "[{}] \"{}\" {} {} {} {}".format(functions.get_datetime(), file_path, old_file_hash, old_file_size, new_file_size, new_file_hash)
 
         with open(FILE_CHANGE_LOG_FILE_PATH, 'a+') as f:
             f.write(log_row)
@@ -94,9 +94,9 @@ def log_file_change(file_path, old_file_hash, old_file_size, new_file_size, new_
 
 def log_file_deletion(file_path, file_size, file_hash):
     try:
-        # Log format: [%time%] "%file_path%" "%file_size%" "%file_hash%"
+        # Log format: [%time%] "%file_path%" %file_size% %file_hash%
 
-        log_row = "[{}] \"{}\" \"{}\" \"{}\"".format(functions.get_datetime(), file_path, file_size, file_hash)
+        log_row = "[{}] \"{}\" {} {}".format(functions.get_datetime(), file_path, file_size, file_hash)
 
         with open(FILE_DELETION_LOG_FILE_PATH, 'a+') as f:
             f.write(log_row)
