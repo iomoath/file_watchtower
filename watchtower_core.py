@@ -47,7 +47,7 @@ def build_watch_option(line):
         try:
             path = parts[0].strip()
             directory_info["watch_path"] = path
-
+            directory_info["exists_on_disk"] = path
             if os.path.isfile(path):
                 directory_info['path_type'] = 'file'
             elif os.path.isdir(path):
@@ -93,8 +93,8 @@ def build_watch_option(line):
         if "max_file_size" not in directory_info:
             directory_info["max_file_size"] = -1
 
-        if "exists_on_disk" not in directory_info:
-            directory_info["exists_on_disk"] = True
+       # if "exists_on_disk" not in directory_info:
+       #     directory_info["exists_on_disk"] = True
 
         return directory_info
     except:
@@ -442,7 +442,6 @@ def start_routine_scan():
 
     # Get file path list
     file_path_list = process_watch_list(watch_list_file_lines)
-
     # Exclude DB file
     db_path = db.get_db_path()
     if db_path in file_path_list:
@@ -472,9 +471,9 @@ def start_routine_scan():
                 has_a_db_record = False
 
             if has_a_db_record:
-                file_path_in_db = file_db_record["file_path"]
-                file_hash_in_db = file_db_record["hash"]
-                file_size_in_db = file_db_record["file_size"]
+                file_path_in_db = file_db_record[1]
+                file_hash_in_db = file_db_record[2]
+                file_size_in_db = file_db_record[3]
 
 
             # Detect File rename
