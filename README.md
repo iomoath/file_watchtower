@@ -24,7 +24,8 @@ Example scenarios:
 # Installation & Usage
 1. Clone or download the project files.
 2. Place the project files in a writble directory, and outside the directories being watched.
-3. Add the file(s) and directories path that should be watched in the file 'watch_list.txt' separated by a new line.
+3. Adjust your settings in 'settings.py'
+4. Add the file(s) and directories path that should be watched in the file 'watch_list.txt' separated by a new line.
 
 Example on 'watch_list.txt' entries
 
@@ -46,8 +47,7 @@ Directory Format:
 ```
 
 
-3. To enable email alerts, modify the Email sending (SMTP) sttings in 'watchtower_settings.py'
-4. Run the script 'watchtower.py' with ```silent-scan``` option.
+5. Run the script 'watchtower.py' with ```silent-scan``` option.
 
 ```
 python3 watchtower.py --silent-scan
