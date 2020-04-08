@@ -151,12 +151,12 @@ def update_file_last_check(file_path, new_datetime_check):
         conn.close()
 
 
-def update_file_path(file_hash, new_path):
+def update_file_path(file_hash, old_path, new_path):
     conn = db_connect()
     try:
         cursor = conn.cursor()
-        query = """UPDATE file_record SET file_path =? WHERE hash =?"""
-        cursor.execute(query, (new_path, file_hash,))
+        query = """UPDATE file_record SET file_path =? WHERE hash =? and file_path=?"""
+        cursor.execute(query, (new_path, file_hash, old_path))
         return cursor.rowcount
     except:
         conn.rollback()
@@ -166,14 +166,14 @@ def update_file_path(file_hash, new_path):
         conn.close()
 
 
-def get_file_record(file_path):
+def get_file_records(file_path):
     conn = db_connect()
     try:
         cursor = conn.cursor()
 
-        cursor.execute("SELECT * FROM file_record WHERE file_path=? LIMIT 1", (file_path,))
+        cursor.execute("SELECT * FROM file_record WHERE file_path=?", (file_path,))
         rows = cursor.fetchall()
-        return rows[0]
+        return rows
     except IndexError:
         return None
     finally:
@@ -182,15 +182,16 @@ def get_file_record(file_path):
 
 
 
-def get_file_record_by_hash(file_hash):
+def get_file_records_by_hash(file_hash):
     conn = db_connect()
     try:
         cursor = conn.cursor()
-        cursor.execute("SELECT * FROM file_record WHERE hash=? LIMIT 1", (file_hash,))
+        cursor.execute("SELECT * FROM file_record WHERE hash=?", (file_hash,))
         rows = cursor.fetchall()
-        return rows[0]
-    except IndexError:
-        return None
+        return rows
+    except Exception:
+        conn.rollback()
+        raise
     finally:
         conn.close()
 
@@ -249,6 +250,7 @@ def is_file_has_record_by_path(file_path):
         return len(rows) > 0
     except:
         conn.rollback()
+        return False
     finally:
         conn.close()
 
@@ -272,6 +274,19 @@ def get_file_size(file_path):
     try:
         cursor = conn.cursor()
         cursor.execute("SELECT file_size FROM file_record WHERE file_path=? LIMIT 1", (file_path,))
+        rows = cursor.fetchall()
+        return rows[0][0]
+    except IndexError:
+        return None
+    finally:
+        conn.close()
+
+
+def get_file_size_by_hash(file_hash):
+    conn = db_connect()
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT file_size FROM file_record WHERE hash=? LIMIT 1", (file_hash,))
         rows = cursor.fetchall()
         return rows[0][0]
     except IndexError:
@@ -347,7 +362,6 @@ def delete_msg(msg_id):
 
 
 def get_unsent_messages():
-
     conn = db_connect()
     try:
         cursor = conn.cursor()
