@@ -53,11 +53,11 @@ def log_info(message, module_name):
 
 
 
-def log_file_rename(old_file_path, new_file_path, file_hash):
+def log_file_rename(old_file_path, new_file_path, file_size, file_hash):
     try:
-        # Log format: [%time%] "%old_file_path%" "%new_file_path%" %file_hash%
+        # Log format: [%time%] "%old_file_path%" "%new_file_path%" %file_size% %file_hash%
 
-        log_row = "[{}] \"{}\" \"{}\" {}".format(functions.get_datetime(), old_file_path, new_file_path, file_hash)
+        log_row = "[{}] \"{}\" \"{}\" {} {}".format(functions.get_datetime(), old_file_path, new_file_path, file_size, file_hash)
 
         with open(FILE_RENAME_LOG_FILE_PATH, 'a+') as f:
             f.write(log_row)
