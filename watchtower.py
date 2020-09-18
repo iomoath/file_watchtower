@@ -48,6 +48,8 @@ def generate_argparser():
  _| |_    | |  | || \__.,     \  /\  / // | |,| |,| \__.  | | | | | |,| \__. | \ \/\ \/ / | \__., | |     
 |_____|  [___][___]'.__.'      \/  \/  \'-;__/\__/'.___.'[___]|__]\__/ '.__.'   \__/\__/   '.__.'[___]    
  
+    
+    Lightweight File Integrity Monitoring Tool
 
     https://github.com/iomoath/file_watchtower
     """
