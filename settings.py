@@ -1,7 +1,7 @@
 ################ Email Alerts settings ################
 EMAIL_ALERTS_ENABLED = False
 SMTP_HOST = "localhost"
-SMTP_PORT = 587
+SMTP_PORT = 25
 SMTP_USERNAME = ""
 SMTP_PASSWORD = ""
 SMTP_SSL = True
