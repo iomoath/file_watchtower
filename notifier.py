@@ -266,7 +266,7 @@ def construct_email_for_sending(msg_info_dict):
         "host": settings.SMTP_HOST,
         "port": settings.SMTP_PORT,
         "ssl": settings.SMTP_SSL,
-        "from": "{} <{}>".format(settings.FROM_NAME, settings.SMTP_USERNAME),
+        "from": "{} <{}>".format(settings.FROM_NAME, settings.FROM),
         "recipients": settings.TO.split(','),
         "message": msg_info_dict["body"],
         "subject": msg_info_dict["subject"],
