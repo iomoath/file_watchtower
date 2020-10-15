@@ -6,6 +6,7 @@ SMTP_USERNAME = ""
 SMTP_PASSWORD = ""
 SMTP_SSL = True
 
+FROM = "soc@example.org"
 FROM_NAME = "File WatchTower"
 TO = "soc@example.org"
 
