@@ -69,19 +69,24 @@ def send_message(dict_msg_attr):
 
     # send email
     try:
-        with smtplib.SMTP('{}: {}'.format(smtp_host, smtp_port)) as server:
-            server.ehlo()
-            if smtp_ssl:
-                server.starttls()
+        if username is not username != "":
+            with smtplib.SMTP('{}: {}'.format(smtp_host, smtp_port)) as server:
                 server.ehlo()
+                if smtp_ssl:
+                    server.starttls()
+                    server.ehlo()
 
-            server.login(username, password)
-            server.sendmail(dict_msg_attr["from"], recipients, composed)
+                server.login(username, password)
+                server.sendmail(dict_msg_attr["from"], recipients, composed)
 
-            server.close()
-            server.close()
-
-            return True
+                server.close()
+                return True
+        else:
+            with smtplib.SMTP("localhost") as server:
+                server.ehlo()
+                server.sendmail(dict_msg_attr["from"], recipients, composed)
+                server.close()
+                return True
 
     except:
         print("Sending email failed. More info {}: ".format(sys.exc_info()[0]), sys.exc_info()[0])
