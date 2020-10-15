@@ -1,9 +1,9 @@
 ################ Email Alerts settings ################
 EMAIL_ALERTS_ENABLED = False
-SMTP_HOST = "smtp.example.net"
+SMTP_HOST = "localhost"
 SMTP_PORT = 587
-SMTP_USERNAME = "soc@example.org"
-SMTP_PASSWORD = "123456"
+SMTP_USERNAME = ""
+SMTP_PASSWORD = ""
 SMTP_SSL = True
 
 FROM_NAME = "File WatchTower"
