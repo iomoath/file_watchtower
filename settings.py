@@ -1,7 +1,5 @@
 ################ Email Alerts settings ################
 EMAIL_ALERTS_ENABLED = False
-
-USE_SMTP = False
 SMTP_HOST = "smtp.example.net"
 SMTP_PORT = 587
 SMTP_USERNAME = "soc@example.org"

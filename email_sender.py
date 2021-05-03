@@ -9,7 +9,6 @@ from email.mime.multipart import MIMEMultipart
 from email import encoders
 import os
 import sys
-import settings
 
 COMMASPACE = ', '
 
@@ -70,7 +69,7 @@ def send_message(dict_msg_attr):
 
     # send email
     try:
-        if settings.USE_SMTP:
+        if username is not None and username != "":
             with smtplib.SMTP('{}: {}'.format(smtp_host, smtp_port)) as server:
                 server.ehlo()
                 if smtp_ssl:
