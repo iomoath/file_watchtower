@@ -15,7 +15,7 @@ import settings
 
 COMMASPACE = ', '
 
-def get_connection_context(sender, recipients, composed):
+def send(sender, recipients, composed):
     if settings.SMTP_SEC_PROTOCOL == "ssl":
         with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, ssl.create_default_context()) as server:
             server.ehlo_or_helo_if_needed()
@@ -88,31 +88,8 @@ def send_message(dict_msg_attr):
 
     # send email
     try:
-        if settings.SMTP_USERNAME is not None and settings.SMTP_USERNAME != "":
-            with smtplib.SMTP('{}: {}'.format(settings.SMTP_HOST, settings.SMTP_PORT)) as server:
-                server.ehlo()
-
-                if settings.SMTP_SEC_PROTOCOL == "tls":
-                    server.starttls()
-                    server.ehlo()
-
-                elif  settings.SMTP_SEC_PROTOCOL == "ssl":
-                    server.context= ssl.create_default_context()
-                    server.ehlo()
-
-
-                server.login(settings.SMTP_USERNAME, settings.SMTP_PASSWORD)
-                server.sendmail(dict_msg_attr["from"], recipients, composed)
-
-                server.close()
-                return True
-        else:
-            with smtplib.SMTP("localhost") as server:
-                server.ehlo()
-                server.sendmail(dict_msg_attr["from"], recipients, composed)
-                server.close()
-                return True
-
+        sender = "{} <{}>".format(settings.FROM_NAME, settings.FROM)
+        send(sender, recipients, composed)
     except:
         print("Sending email failed. More info {}: ".format(sys.exc_info()[0]), sys.exc_info()[0])
         raise
