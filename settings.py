@@ -1,12 +1,12 @@
 ################ Email Alerts settings ################
 EMAIL_ALERTS_ENABLED = False
-SMTP_HOST = "smtp.example.net"
-SMTP_PORT = 587
-SMTP_SEC_PROTOCOL = 'tls' # valid vlaues: tls, ssl, none
+SMTP_HOST = "localhost"
+SMTP_PORT = 25
+SMTP_SEC_PROTOCOL = 'none' # valid vlaues: tls, ssl, none
 
-SMTP_REQUIRE_AUTH = True
-SMTP_USERNAME = "soc@example.org"
-SMTP_PASSWORD = "123456"
+SMTP_REQUIRE_AUTH = False
+SMTP_USERNAME = ""
+SMTP_PASSWORD = ""
 
 
 FROM = "soc@example.org"
