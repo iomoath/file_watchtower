@@ -15,6 +15,32 @@ import settings
 
 COMMASPACE = ', '
 
+def get_connection_context(sender, recipients, composed):
+    if settings.SMTP_SEC_PROTOCOL == "ssl":
+        with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, ssl.create_default_context()) as server:
+            server.ehlo_or_helo_if_needed()
+            if settings.SMTP_REQUIRE_AUTH:
+                server.login(settings.SMTP_USERNAME, settings.SMTP_PASSWORD)
+            server.sendmail(sender, recipients, composed)
+            server.close()
+            return True
+    elif settings.SMTP_SEC_PROTOCOL == "tls":
+        with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT) as server:
+            server.starttls()
+            server.ehlo_or_helo_if_needed()
+
+            if settings.SMTP_REQUIRE_AUTH:
+                server.login(settings.SMTP_USERNAME, settings.SMTP_PASSWORD)
+            server.sendmail(sender, recipients, composed)
+            server.close()
+            return True
+    else:
+        with smtplib.SMTP(settings.SMTP_HOST) as server:
+            server.ehlo_or_helo_if_needed()
+            server.sendmail(sender, recipients, composed)
+            server.close()
+            return True
+
 
 def send_message(dict_msg_attr):
     """
