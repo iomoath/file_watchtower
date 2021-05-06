@@ -3,12 +3,15 @@ Email sender with attachment support
 """
 
 import smtplib
+import ssl
 from email.mime.base import MIMEBase
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email import encoders
 import os
 import sys
+import settings
+
 
 COMMASPACE = ', '
 
@@ -18,11 +21,6 @@ def send_message(dict_msg_attr):
     Send email message, support multiple attachments
     Example param:
     dict_msg = {
-    "username": "testk@gmail.com",
-    "password": "123456",
-    "server": "smtp.gmail.com",
-    "port": 587,
-    "ssl": True,
     "from": "First Last <testk@gmail.com>",
     "recipients": ["hello@vegalayer.com", "moathmaharmeh@vegalayer.com"],
     "message": "this is the email text body.",
@@ -35,11 +33,6 @@ def send_message(dict_msg_attr):
     if dict_msg_attr is None:
         return False
 
-    username = dict_msg_attr["username"]
-    password = dict_msg_attr["password"]
-    smtp_host = dict_msg_attr["host"]
-    smtp_port = int(dict_msg_attr["port"])
-    smtp_ssl = bool(dict_msg_attr["ssl"])
     recipients = dict_msg_attr["recipients"]
     message = dict_msg_attr["message"]
 
@@ -69,14 +62,20 @@ def send_message(dict_msg_attr):
 
     # send email
     try:
-        if username is not None and username != "":
-            with smtplib.SMTP('{}: {}'.format(smtp_host, smtp_port)) as server:
+        if settings.SMTP_USERNAME is not None and settings.SMTP_USERNAME != "":
+            with smtplib.SMTP('{}: {}'.format(settings.SMTP_HOST, settings.SMTP_PORT)) as server:
                 server.ehlo()
-                if smtp_ssl:
+
+                if settings.SMTP_SEC_PROTOCOL == "tls":
                     server.starttls()
                     server.ehlo()
 
-                server.login(username, password)
+                elif  settings.SMTP_SEC_PROTOCOL == "ssl":
+                    server.context= ssl.create_default_context()
+                    server.ehlo()
+
+
+                server.login(settings.SMTP_USERNAME, settings.SMTP_PASSWORD)
                 server.sendmail(dict_msg_attr["from"], recipients, composed)
 
                 server.close()

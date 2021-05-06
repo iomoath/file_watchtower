@@ -261,11 +261,6 @@ def construct_email_for_sending(msg_info_dict):
         attachments = None
 
     dict_msg = {
-        "username": settings.SMTP_USERNAME,
-        "password": settings.SMTP_PASSWORD,
-        "host": settings.SMTP_HOST,
-        "port": settings.SMTP_PORT,
-        "ssl": settings.SMTP_SSL,
         "from": "{} <{}>".format(settings.FROM_NAME, settings.FROM),
         "recipients": settings.TO.split(','),
         "message": msg_info_dict["body"],
