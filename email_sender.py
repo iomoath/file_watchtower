@@ -37,6 +37,9 @@ def send(sender, recipients, composed):
     else:
         with smtplib.SMTP(settings.SMTP_HOST) as server:
             server.ehlo_or_helo_if_needed()
+
+            if settings.SMTP_REQUIRE_AUTH:
+                server.login(settings.SMTP_USERNAME, settings.SMTP_PASSWORD)
             server.sendmail(sender, recipients, composed)
             server.close()
             return True
