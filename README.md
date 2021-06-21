@@ -95,6 +95,6 @@ This project is licensed under the GNU General Public License v2.0 - see the [LI
 
 
 ## Meta
-Moath Maharmeh - [@iomoaaz](https://twitter.com/iomoaaz) - moath@vegalayer.com
+Moath Maharmeh -  moath@vegalayer.com
 
 https://github.com/iomoath/file_watchtower
